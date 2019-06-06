@@ -11,6 +11,8 @@ extern int yylex();
 extern char *yytext; // Get current token from lex
 extern char buf[BUF_SIZE]; // Get current code line from lex
 
+char code_buf[BUF_SIZE];
+
 FILE *file; // To generate .j file for Jasmin
 
 void yyerror(char *s);
@@ -18,6 +20,8 @@ void yyerror(char *s);
 /* symbol table functions */
 int var_count = 0;
 
+
+bool err_flag = false;
 // Flags for lexer
 bool dump_flag = false;
 bool display_flag = false;
@@ -39,7 +43,7 @@ void dumpTable();
 struct FuncAttr* temp_attribute = NIL;
 
 /* code generation functions, just an example! */
-void gencode_function();
+void code_gen(char const *s);
 
 %}
 
@@ -518,4 +522,8 @@ void insertNode(const char* name, TYPE entry_type, TYPE data_type, bool isFuncDe
 }
 
 /* code generation functions */
-void gencode_function() {}
+void code_gen(char const *s)
+{
+    if (!err_flag)
+        fprintf(file, "%s", s);
+}
