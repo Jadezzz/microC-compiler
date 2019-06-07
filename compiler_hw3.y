@@ -17,6 +17,8 @@ FILE *file; // To generate .j file for Jasmin
 
 void yyerror(char *s);
 
+TYPE func_ret = VOID_t;
+
 /* symbol table functions */
 int var_count = 0;
 
@@ -38,12 +40,16 @@ struct SymTable newTable();
 void removeTable(bool display_flag);
 void insertNode(const char* name, TYPE entry_type, TYPE data_type, bool isFuncDefine, bool prevScope);
 char* type2String(TYPE type);
+char* type2Code(TYPE type);
 void dumpTable();
 struct SymNode* lookupSymbol(char* name, bool recursive);
 
 struct FuncAttr* temp_attribute = NIL;
+void addParam(TYPE type, char* name);
 
-/* code generation functions, just an example! */
+
+
+/* code generation functions */
 void genPrint(TYPE type);
 void codeGen(char const *s);
 void genStore(struct SymNode* node);
@@ -208,6 +214,9 @@ var_decl
 			else if($1 == STRING_t && $4 == STRING_t){
 				// No need to cast string->string
 			}
+			else if($1 == BOOLEAN_t && $4 == BOOLEAN_t){
+				// No need to cast bool->bool
+			}
 			else {
 				yyerror("Type mismatch error\n");
 			}
@@ -232,12 +241,69 @@ func_decl
 	;
 func_def
 	: type_spec ID LB params RB { 
-		if(!strcmp($2, "main")){
-			fprintf(file,
-                    ".method public static main([Ljava/lang/String;)V\n"
-					".limit stack 50\n"
-					".limit locals 50\n" );
+
+		// Deal with no parameter 
+		if(temp_attribute == NIL){
+			temp_attribute = malloc(sizeof(struct FuncAttr));
+			temp_attribute->paramNum = 0;
+			temp_attribute->params = malloc(sizeof(struct TypeList));
+			temp_attribute->params->type = VOID_t;
+			temp_attribute->params->next = NIL;
 		}
+		
+		// Insert to symbol table
+		// TODO:  redeclear check!
+		insertNode($2, FUNCTION_t, $1, true, false);
+        codeGen(".method public static ");
+		codeGen($2);
+		codeGen("(");
+		// Generate Param Types
+		struct TypeList* ptr = temp_attribute->params;
+		if(!strcmp($2, "main")){
+			codeGen(type2Code(STRING_t));
+		}
+		else{
+			while(ptr != NIL){
+				codeGen(type2Code(ptr->type));
+				ptr = ptr->next;
+			}
+		}
+		
+		codeGen(")");
+		// Generate Return Type
+		if(!strcmp($2, "main")){
+			codeGen(type2Code(VOID_t));
+			func_ret = VOID_t;
+		}
+		else{
+			func_ret = $1;
+			codeGen(type2Code($1));
+		}
+		
+		codeGen("\n");
+
+		codeGen(".limit stack 50\n");
+		codeGen(".limit locals 50\n");		
+
+
+		// Open a new table, insert params first
+		var_count = 0; 
+		newTable(); 	
+		
+		ptr = temp_attribute->params;
+		while(ptr != NIL && temp_attribute->paramNum != 0){
+			insertNode(ptr->name, PARAMETER_t, ptr->type, false, false);
+			ptr = ptr->next;
+		}
+		
+		temp_attribute = NIL;
+		
+		struct SymNode* node_ptr = HEAD->first;
+		while(node_ptr != NIL){
+			genLoad(node_ptr);
+			node_ptr = node_ptr->next;
+		}
+		
 	} function_compound_stmt
 	;
 
@@ -253,12 +319,14 @@ param_list
 	;
 
 param
-	: type_spec ID 
+	: type_spec ID {
+		addParam($1, $2);
+	}
 	|
 	;
 
 function_compound_stmt
-	: LCB { var_count = 0; newTable(); } content_list RCB { removeTable(true); }
+	: LCB content_list return_stmt RCB { removeTable(true); codeGen(".end method\n"); }
 	;
 
 compound_stmt
@@ -280,7 +348,6 @@ stmt
 	| compound_stmt 
 	| if_stmt
 	| while_stmt
-	| return_stmt
 	| print_stmt
 	;
 
@@ -443,8 +510,47 @@ else_stmt
 	;
 
 return_stmt
-	: RET SEMICOLON
-	| RET expression SEMICOLON
+	: RET SEMICOLON {
+		if(func_ret == VOID_t){
+			codeGen("\treturn\n");
+		}
+		else{
+			yyerror("Return is not void");
+		}
+	}
+	| RET expression SEMICOLON{
+		
+		if(func_ret == INTEGER_t && $2 == INTEGER_t){
+			// No need to cast int->int
+			codeGen("\tireturn\n");
+		}
+		else if(func_ret == INTEGER_t && $2 == FLOAT_t){
+			// Cast stack to int float->int
+			codeGen("\tf2i\n");
+			codeGen("\tireturn\n");
+		}
+		else if(func_ret == FLOAT_t && $2 == INTEGER_t){
+			// Cast to float int->float
+			codeGen("\ti2f\n");
+			codeGen("\tfreturn\n");
+		}
+		else if(func_ret == FLOAT_t && $2 == FLOAT_t){
+			// No need to cast float->float
+			codeGen("\tfreturn\n");
+		}
+		else if(func_ret == STRING_t && $2 == STRING_t){
+			// No need to cast string->string
+			codeGen("\tareturn\n");
+		}
+		else if(func_ret == BOOLEAN_t && $2 == BOOLEAN_t){
+			// No need to cast bool->bool
+			codeGen("\tireturn\n");
+		}
+		else {
+			yyerror("Return Type mismatch error");
+		}
+	
+	}
 
 func_invoke_stmt
 	: ID LB args RB
@@ -477,8 +583,6 @@ int main(int argc, char** argv)
 	dumpTable();
     printf("\nTotal lines: %d \n",yylineno);
 
-    fprintf(file, "\treturn\n"
-                  ".end method\n");
 
     fclose(file);
 
@@ -567,7 +671,7 @@ void dumpTable(void){
                 struct TypeList* del_param_ptr = NIL;
                 while(param_num--){
                     if(display_flag){
-                        if(param_num == 1){
+                        if(param_num == 0){
                             printf("%s\n", type2String(param_ptr->type));
                         }
                         else{
@@ -640,6 +744,34 @@ char* type2String(TYPE type){
     }
 }
 
+char* type2Code(TYPE type){
+    switch (type)
+    {
+    case BOOLEAN_t:
+        return "Z";
+        break;
+    
+    case VOID_t:
+        return "V";
+        break;
+    
+    case INTEGER_t:
+        return "I";
+        break;
+    
+    case FLOAT_t:
+        return "F";
+        break;
+
+    case STRING_t:
+        return "[Ljava/lang/String;";
+        break;
+
+    default:
+        break;
+    }
+}
+
 
 void insertNode(const char* name, TYPE entry_type, TYPE data_type, bool isFuncDefine, bool prevScope){
     
@@ -652,7 +784,15 @@ void insertNode(const char* name, TYPE entry_type, TYPE data_type, bool isFuncDe
     new_node->next = NIL;
     new_node->isFuncDefine = isFuncDefine;
 
-    // TODO: Attribute
+    // Attribute
+	if(entry_type == FUNCTION_t){
+		if(temp_attribute == NIL){
+			yyerror("ERR!! temp attribute should not be NIL!");
+		}
+		else{
+			new_node->attribute = temp_attribute;
+		}
+	}
 
 	// Insert to sym table
 	if(prevScope){
@@ -724,6 +864,35 @@ struct SymNode* lookupSymbol(char* name, bool recursive){
 		return NIL;
 	}
 }
+
+void addParam(TYPE type, char* name){
+	if(temp_attribute == NIL){
+		temp_attribute = malloc(sizeof(struct FuncAttr));
+		temp_attribute->paramNum = 1;
+		struct TypeList* new_param = malloc(sizeof(struct TypeList));
+		new_param->type = type;
+		new_param->next = NIL;
+		strcpy(new_param->name, name);
+		temp_attribute->params = new_param;
+	}
+	else{
+		struct TypeList* new_param = malloc(sizeof(struct TypeList));
+		new_param->type = type;
+		new_param->next = NIL;
+		strcpy(new_param->name, name);
+
+		struct TypeList* ptr = temp_attribute->params;
+		while(ptr->next != NIL){
+			ptr = ptr->next;
+		}
+
+		ptr->next = new_param;
+
+		temp_attribute->paramNum += 1;
+	}
+}
+
+
 
 /* code generation functions */
 void genPrint(TYPE type){

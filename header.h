@@ -14,6 +14,7 @@ typedef enum {
 } OPERATOR;
 
 struct TypeList {
+    char name[10];
     TYPE type;
     struct TypeList* next;
 };
@@ -24,7 +25,7 @@ struct FuncAttr {
 };
 
 struct SymNode {
-    char name[32];
+    char name[10];
     int scope;
     TYPE entry_type;
     TYPE data_type;
