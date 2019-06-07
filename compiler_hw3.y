@@ -37,13 +37,17 @@ int scope = 0;
 struct SymTable newTable();
 void removeTable(bool display_flag);
 void insertNode(const char* name, TYPE entry_type, TYPE data_type, bool isFuncDefine, bool prevScope);
-char* type2string(TYPE type);
+char* type2String(TYPE type);
 void dumpTable();
+struct SymNode* lookupSymbol(char* name, bool recursive);
 
 struct FuncAttr* temp_attribute = NIL;
 
 /* code generation functions, just an example! */
-void code_gen(char const *s);
+void genPrint(TYPE type);
+void codeGen(char const *s);
+void genStore(struct SymNode* node);
+void genLoad(struct SymNode* node);
 
 %}
 
@@ -75,7 +79,9 @@ void code_gen(char const *s);
 %token VOID INT FLOAT BOOL STRING
 
 /* Nonterminal with return */
-%type <type> type_spec
+%type <type> type_spec constant expression or_expr and_expr
+%type <type> comparison_expr addition_expr multiplication_expr
+%type <type> postfix_expr parenthesis_clause
 %type <op> assign_op cmp_op add_op mul_op post_op 
 
 /* Yacc start nonterminal */
@@ -94,13 +100,103 @@ decl_list
 	;
 
 decl
-	: var_decl
+	: global_var_decl
 	| fun_decl
 	;
 
+global_var_decl
+	: type_spec ID ASGN constant SEMICOLON {
+		// TODO: NOT DONE 
+		// We can assume type will always be correct 
+		if(lookupSymbol($2, false) == NIL){
+			insertNode($2, VARIABLE_t, $1, false, false);
+			char c;
+			switch ($1){
+				case INTEGER_t:
+					c = 'I';
+					sprintf(code_buf, ".field public static %s %c = %d\n", $2, c, yylval.i_val);
+					codeGen(code_buf);
+					break;
+				case FLOAT_t:
+					c = 'F';
+					sprintf(code_buf, ".field public static %s %c = %f\n", $2, c, yylval.f_val);
+					codeGen(code_buf);
+					break;
+				case BOOL:
+					c = 'Z';
+					break;
+				default:
+					yyerror("Unsupported global type\n");
+					break;
+			}
+		}
+		else{
+			yyerror("Redeclared Symbol\n");
+		}
+	}
+	;
+
 var_decl
-	: type_spec ID SEMICOLON { insertNode($2, VARIABLE_t, $1, false, false); }
-	| type_spec ID ASGN expression SEMICOLON
+	: type_spec ID SEMICOLON { 	
+		if(lookupSymbol($2, false) == NIL){
+			insertNode($2, VARIABLE_t, $1, false, false);
+			// Assign 0 as initial value
+			struct SymNode* node = lookupSymbol($2, true);
+			switch ($1){
+				case INTEGER_t:
+					codeGen("\tldc 0\n");
+					genStore(node);
+					break;
+
+				case FLOAT_t:
+					codeGen("\tldc 0.0\n");
+					genStore(node);
+					break;
+
+				case STRING_t:
+					codeGen("\tldc \"\"\n");
+					genStore(node);
+					break;
+
+				default:
+					yyerror("Unsupported type in variable decl.\n");
+					break;
+			} 
+		}
+		else{
+			yyerror("Redeclared Symbol\n");
+		}
+	}
+	| type_spec ID ASGN expression SEMICOLON {
+		if(lookupSymbol($2, false) == NIL){
+			insertNode($2, VARIABLE_t, $1, false, false);
+			struct SymNode* node = lookupSymbol($2, true);
+			if($1 == INTEGER_t && $4 == INTEGER_t){
+				// No need to cast int->int
+			}
+			else if($1 == INTEGER_t && $4 == FLOAT_t){
+				// Cast stack to int float->int
+				codeGen("\tf2i\n");
+			}
+			else if($1 == FLOAT_t && $4 == INTEGER_t){
+				// Cast to float int->float
+				codeGen("\ti2f\n");
+			}
+			else if($1 == FLOAT_t && $4 == FLOAT_t){
+				// No need to cast float->float
+			}
+			else if($1 == STRING_t && $4 == STRING_t){
+				// No need to cast string->string
+			}
+			else {
+				yyerror("Type mismatch error\n");
+			}
+			genStore(node);
+		}
+		else{
+			yyerror("Redeclared Symbol\n");
+		}
+	}
 	;
 
 type_spec
@@ -163,7 +259,7 @@ expression_stmt
 	: expression SEMICOLON
 
 assign_stmt
-	: expression assign_op expression SEMICOLON
+	: ID assign_op expression SEMICOLON
 
 assign_op
 	: ASGN { $$=ASGN_t; }
@@ -175,22 +271,22 @@ assign_op
 	;
 
 expression
-	: or_expr
+	: or_expr { $$=$1; }
 	;
 
 or_expr
-	: and_expr
-	| or_expr OR and_expr
+	: and_expr { $$=$1; }
+	| or_expr OR and_expr { $$=BOOLEAN_t; }
 	;
 
 and_expr
-	: comparison_expr
-	| and_expr AND comparison_expr
+	: comparison_expr { $$=$1; }
+	| and_expr AND comparison_expr { $$=BOOLEAN_t; }
 	;
 
 comparison_expr
-	: addition_expr
-	| comparison_expr cmp_op addition_expr
+	: addition_expr { $$=$1; } 
+	| comparison_expr cmp_op addition_expr { $$=BOOLEAN_t; }
 	;
 
 cmp_op
@@ -203,8 +299,9 @@ cmp_op
 	;
 
 addition_expr
-	: multiplication_expr
-	| addition_expr add_op multiplication_expr
+	: multiplication_expr { $$=$1; }
+	| addition_expr add_op multiplication_expr { //TEMP!!!
+												 $$=INTEGER_t; }
 	;
 
 add_op
@@ -213,8 +310,9 @@ add_op
 	;
 
 multiplication_expr
-	: postfix_expr
-	| multiplication_expr mul_op postfix_expr
+	: postfix_expr { $$=$1; }
+	| multiplication_expr mul_op postfix_expr { //TEMP!!!
+												 $$=INTEGER_t; }
 	;
 
 mul_op
@@ -224,8 +322,9 @@ mul_op
 	;
 
 postfix_expr
-	: parenthesis_clause
-	| parenthesis_clause post_op
+	: parenthesis_clause { $$=$1; }
+ 	| parenthesis_clause post_op { //TEMP!!!
+								   $$=INTEGER_t; }
 	;
 
 post_op
@@ -234,27 +333,53 @@ post_op
 	;
 
 parenthesis_clause
-	: constant
-	| ID
-	| func_invoke_stmt
-	| LB expression RB
+	: constant { $$=$1; }
+	| ID { 
+		struct SymNode* node = lookupSymbol($1, true);
+		$$=node->data_type; 
+		genLoad(node);
+	}
+	| func_invoke_stmt { //TEMP!!!
+						 $$=INTEGER_t; }
+	| LB expression RB { $$=$2; }
 	;
 
 constant
-	: I_CONST
-	| F_CONST
-	| SUB I_CONST
-	| SUB F_CONST
-	| TRUE
-	| FALSE
-	| STRING_CONST
+	: I_CONST { $$=INTEGER_t; 
+				sprintf(code_buf, "\tldc %d\n", yylval.i_val); 
+			  	codeGen(code_buf);
+			  }
+	| F_CONST { $$=FLOAT_t; 
+				sprintf(code_buf, "\tldc %f\n", yylval.f_val); 
+			  	codeGen(code_buf);
+			  }
+	| SUB I_CONST { $$=INTEGER_t; 
+					sprintf(code_buf, "\tldc %d\n", -1*yylval.i_val); 
+			  		codeGen(code_buf);
+				  }
+	| SUB F_CONST { $$=FLOAT_t; 
+					sprintf(code_buf, "\tldc %f\n", -1*yylval.f_val); 
+			  		codeGen(code_buf);
+				  }
+	| TRUE { $$=BOOLEAN_t; }
+	| FALSE { $$=BOOLEAN_t; }
+	| STRING_CONST { $$=STRING_t; 
+					 sprintf(code_buf, "\tldc \"%s\"\n", yylval.lexeme); 
+			  		 codeGen(code_buf);
+				   }
 	;
 
 print_stmt
-	: PRINT LB ID RB SEMICOLON
-    | PRINT LB I_CONST RB SEMICOLON
-	| PRINT LB F_CONST RB SEMICOLON
-	| PRINT LB STRING RB SEMICOLON
+	: PRINT LB ID RB SEMICOLON { 	struct SymNode* node = lookupSymbol($3, true);
+									if( node != NIL){
+										genLoad(node);
+										genPrint(node->data_type);
+									}
+									else{
+										yyerror("Undefined Variable in print()!\n");
+									}
+								}
+    | PRINT LB constant RB SEMICOLON { genPrint($3); }
 	;
 
 while_stmt
@@ -302,9 +427,14 @@ int main(int argc, char** argv)
 
     fprintf(file,   ".class public compiler_hw3\n"
                     ".super java/lang/Object\n"
-                    ".method public static main([Ljava/lang/String;)V\n");
-
+                    ".method public static main([Ljava/lang/String;)V\n"
+					".limit stack 50\n"
+					".limit locals 50\n" );
+	newTable();
     yyparse();
+
+	removeTable(true);
+	dumpTable();
     printf("\nTotal lines: %d \n",yylineno);
 
     fprintf(file, "\treturn\n"
@@ -386,8 +516,8 @@ void dumpTable(void){
             if(display_flag){
                 printf("%-10d", ptr->index);
                 printf("%-10s", ptr->name);
-                printf("%-12s", type2string(ptr->entry_type));
-                printf("%-10s", type2string(ptr->data_type));
+                printf("%-12s", type2String(ptr->entry_type));
+                printf("%-10s", type2String(ptr->data_type));
                 printf("%-10d", ptr->scope);
             }
 
@@ -398,10 +528,10 @@ void dumpTable(void){
                 while(param_num--){
                     if(display_flag){
                         if(param_num == 1){
-                            printf("%s\n", type2string(param_ptr->type));
+                            printf("%s\n", type2String(param_ptr->type));
                         }
                         else{
-                            printf("%s, ", type2string(param_ptr->type));
+                            printf("%s, ", type2String(param_ptr->type));
                         }
                     }
                     del_param_ptr = param_ptr;
@@ -430,7 +560,7 @@ void dumpTable(void){
 }
 
 
-char* type2string(TYPE type){
+char* type2String(TYPE type){
     switch (type)
     {
     case BOOLEAN_t:
@@ -521,9 +651,121 @@ void insertNode(const char* name, TYPE entry_type, TYPE data_type, bool isFuncDe
 	}
 }
 
+struct SymNode* lookupSymbol(char* name, bool recursive){
+	/*
+	 * Return symbol node reference if found, NIL if not found
+	 * If using recursive, try all existing symbol table
+	 */
+	
+	struct SymTable* tab_ptr = HEAD;
+	struct SymNode* node_ptr = tab_ptr->first;
+
+	if(recursive){
+		while(tab_ptr != NIL){
+			node_ptr = tab_ptr->first;
+			while(node_ptr != NIL){
+				if(!strcmp(node_ptr->name, name)){
+					return node_ptr;
+				}	
+				node_ptr = node_ptr->next;
+			}
+			tab_ptr = tab_ptr->next;
+		}
+		return NIL;
+	}
+	else{
+		node_ptr = tab_ptr->first;
+		while(node_ptr != NIL){
+			if(!strcmp(node_ptr->name, name)){
+				return node_ptr;
+			}	
+			node_ptr = node_ptr->next;
+		}
+		return NIL;
+	}
+}
+
 /* code generation functions */
-void code_gen(char const *s)
+void genPrint(TYPE type){
+	sprintf(code_buf, "\tgetstatic java/lang/System/out Ljava/io/PrintStream;\n");
+	codeGen(code_buf);
+	sprintf(code_buf, "\tswap\n");
+	codeGen(code_buf);
+
+	switch (type)
+	{
+	case INTEGER_t:
+		sprintf(code_buf, "\tinvokevirtual java/io/PrintStream/println(I)V\n");
+		codeGen(code_buf);
+		break;
+	
+	case FLOAT_t:
+		sprintf(code_buf, "\tinvokevirtual java/io/PrintStream/println(F)V\n");
+		codeGen(code_buf);
+		break;
+	
+	case STRING_t:
+		sprintf(code_buf, "\tinvokevirtual java/io/PrintStream/println(Ljava/lang/String;)V\n");
+		codeGen(code_buf);
+		break;
+	
+	default:
+		yyerror("Unsupported Type in print() !");
+	}
+}
+
+void codeGen(char const *s)
 {
     if (!err_flag)
         fprintf(file, "%s", s);
+}
+
+void genStore(struct SymNode* node){
+	int index = node->index;
+	TYPE type = node->data_type;
+	switch (type){
+		case INTEGER_t:
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+			break;
+
+		case FLOAT_t:
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+			break;
+
+		case STRING_t:
+			sprintf(code_buf, "\tastore %d\n", index);
+			codeGen(code_buf);
+			break;
+
+		default:
+			yyerror("Unable to generate store instruction\n");
+			break;
+	}
+}
+
+void genLoad(struct SymNode* node){
+	int index = node->index;
+	TYPE type = node->data_type;
+	switch (type){
+		case INTEGER_t:
+			sprintf(code_buf, "\tiload %d\n", index);
+			codeGen(code_buf);
+			break;
+
+		case FLOAT_t:
+			sprintf(code_buf, "\tfload %d\n", index);
+			codeGen(code_buf);
+			break;
+
+		case STRING_t:
+			sprintf(code_buf, "\taload %d\n", index);
+			codeGen(code_buf);
+			break;
+
+		default:
+			yyerror("Unable to generate load instruction\n");
+			break;
+	}
 }
