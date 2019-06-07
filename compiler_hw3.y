@@ -101,14 +101,15 @@ decl_list
 
 decl
 	: global_var_decl
-	| fun_decl
+	| func_decl
+	| func_def
 	;
 
 global_constant
 	: I_CONST 
 	| F_CONST 
-	| SUB I_CONST 
-	| SUB F_CONST 
+	| SUB I_CONST { yylval.i_val *= -1; }
+	| SUB F_CONST { yylval.f_val *= -1; }
 	| TRUE 
 	| FALSE 
 	| STRING_CONST
@@ -132,9 +133,13 @@ global_var_decl
 					sprintf(code_buf, ".field public static %s %c = %f\n", $2, c, yylval.f_val);
 					codeGen(code_buf);
 					break;
-				case BOOL:
-					c = 'Z';
+				
+				case BOOLEAN_t:
+					c = 'I';
+					sprintf(code_buf, ".field public static %s %c = %d\n", $2, c, yylval.i_val);
+					codeGen(code_buf);
 					break;
+				
 				default:
 					yyerror("Unsupported global type\n");
 					break;
@@ -160,6 +165,11 @@ var_decl
 
 				case FLOAT_t:
 					codeGen("\tldc 0.0\n");
+					genStore(node);
+					break;
+
+				case BOOLEAN_t:
+					codeGen("\tldc 0\n");
 					genStore(node);
 					break;
 
@@ -217,9 +227,18 @@ type_spec
 	| STRING { $$=STRING_t; }
 	;
 
-fun_decl
-	: type_spec ID LB params RB SEMICOLON 
-	| type_spec ID LB params RB function_compound_stmt
+func_decl
+	: type_spec ID LB params RB SEMICOLON
+	;
+func_def
+	: type_spec ID LB params RB { 
+		if(!strcmp($2, "main")){
+			fprintf(file,
+                    ".method public static main([Ljava/lang/String;)V\n"
+					".limit stack 50\n"
+					".limit locals 50\n" );
+		}
+	} function_compound_stmt
 	;
 
 
@@ -239,7 +258,7 @@ param
 	;
 
 function_compound_stmt
-	: LCB { var_count = 0; newTable(); }content_list RCB { removeTable(true); }
+	: LCB { var_count = 0; newTable(); } content_list RCB { removeTable(true); }
 	;
 
 compound_stmt
@@ -355,40 +374,54 @@ parenthesis_clause
 	;
 
 constant
-	: I_CONST { $$=INTEGER_t; 
-				sprintf(code_buf, "\tldc %d\n", yylval.i_val); 
-			  	codeGen(code_buf);
-			  }
-	| F_CONST { $$=FLOAT_t; 
-				sprintf(code_buf, "\tldc %f\n", yylval.f_val); 
-			  	codeGen(code_buf);
-			  }
-	| SUB I_CONST { $$=INTEGER_t; 
-					sprintf(code_buf, "\tldc %d\n", -1*yylval.i_val); 
-			  		codeGen(code_buf);
-				  }
-	| SUB F_CONST { $$=FLOAT_t; 
-					sprintf(code_buf, "\tldc %f\n", -1*yylval.f_val); 
-			  		codeGen(code_buf);
-				  }
-	| TRUE { $$=BOOLEAN_t; }
-	| FALSE { $$=BOOLEAN_t; }
-	| STRING_CONST { $$=STRING_t; 
-					 sprintf(code_buf, "\tldc \"%s\"\n", yylval.lexeme); 
-			  		 codeGen(code_buf);
-				   }
+	: I_CONST { 
+		$$=INTEGER_t; 
+		sprintf(code_buf, "\tldc %d\n", yylval.i_val); 
+		codeGen(code_buf);
+	}
+	| F_CONST { 
+		$$=FLOAT_t; 
+		sprintf(code_buf, "\tldc %f\n", yylval.f_val); 
+		codeGen(code_buf);
+	}
+	| SUB I_CONST { 
+		$$=INTEGER_t; 
+		sprintf(code_buf, "\tldc %d\n", -1*yylval.i_val); 
+		codeGen(code_buf);
+	}
+	| SUB F_CONST { 
+		$$=FLOAT_t; 
+		sprintf(code_buf, "\tldc %f\n", -1*yylval.f_val); 
+		codeGen(code_buf);
+	}
+	| TRUE { 
+		$$=BOOLEAN_t;
+		sprintf(code_buf, "\tldc 1\n");
+		codeGen(code_buf); 
+	}
+	| FALSE { 
+		$$=BOOLEAN_t; 
+		sprintf(code_buf, "\tldc 0\n");
+		codeGen(code_buf);	
+	}
+	| STRING_CONST { 
+		$$=STRING_t; 
+		sprintf(code_buf, "\tldc \"%s\"\n", yylval.lexeme); 
+		codeGen(code_buf);
+	}
 	;
 
 print_stmt
-	: PRINT LB ID RB SEMICOLON { 	struct SymNode* node = lookupSymbol($3, true);
-									if( node != NIL){
-										genLoad(node);
-										genPrint(node->data_type);
-									}
-									else{
-										yyerror("Undefined Variable in print()!\n");
-									}
-								}
+	: PRINT LB ID RB SEMICOLON { 	
+		struct SymNode* node = lookupSymbol($3, true);
+		if( node != NIL){
+			genLoad(node);
+			genPrint(node->data_type);
+		}
+		else{
+			yyerror("Undefined Variable in print()!\n");
+		}
+	}
     | PRINT LB constant RB SEMICOLON { genPrint($3); }
 	;
 
@@ -436,10 +469,7 @@ int main(int argc, char** argv)
     file = fopen("compiler_hw3.j","w");
 
     fprintf(file,   ".class public compiler_hw3\n"
-                    ".super java/lang/Object\n"
-                    ".method public static main([Ljava/lang/String;)V\n"
-					".limit stack 50\n"
-					".limit locals 50\n" );
+                    ".super java/lang/Object\n" );
 	newTable();
     yyparse();
 
@@ -749,6 +779,11 @@ void genStore(struct SymNode* node){
 			codeGen(code_buf);
 			break;
 
+		case BOOLEAN_t:
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+			break;
+		
 		default:
 			yyerror("Unable to generate store instruction\n");
 			break;
@@ -771,6 +806,11 @@ void genLoad(struct SymNode* node){
 
 		case STRING_t:
 			sprintf(code_buf, "\taload %d\n", index);
+			codeGen(code_buf);
+			break;
+
+		case BOOLEAN_t:
+			sprintf(code_buf, "\tiload %d\n", index);
 			codeGen(code_buf);
 			break;
 

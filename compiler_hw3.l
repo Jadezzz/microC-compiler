@@ -86,8 +86,8 @@ id			{letter}+({letter}|{digit})*
 "bool"  	{ CONCAT return(BOOL); }
 
  /* boolean Keywords */
-"true"      { CONCAT return(TRUE); }
-"false"     { CONCAT return(FALSE); }
+"true"      { CONCAT yylval.i_val = 1; return(TRUE); }
+"false"     { CONCAT yylval.i_val = 0; return(FALSE); }
 
 "return"    { CONCAT return(RET); }
 
