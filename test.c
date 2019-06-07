@@ -6,13 +6,14 @@ int foo1(int a, int b){
     return c;
 }
 
-float foo2(bool c){
+bool foo2(bool c){
     c = true;
-    return 3.1415;
+    return true;
 }
 
 void main(){
     float a = 3.1415;
+    foo3();
     print(a);
     return;
 }

@@ -11,6 +11,11 @@ extern int yylex();
 extern char *yytext; // Get current token from lex
 extern char buf[BUF_SIZE]; // Get current code line from lex
 
+
+extern bool semantic_error_flag;
+extern bool syntax_error_flag;
+
+char err_msg[BUF_SIZE];
 char code_buf[BUF_SIZE];
 
 FILE *file; // To generate .j file for Jasmin
@@ -98,6 +103,7 @@ void genLoad(struct SymNode* node);
 
 program
 	: decl_list 
+	| error { syntax_error_flag = true; }
 	;
 
 decl_list
@@ -147,12 +153,12 @@ global_var_decl
 					break;
 				
 				default:
-					yyerror("Unsupported global type\n");
+					yyerror("Unsupported global type!");
 					break;
 			}
 		}
 		else{
-			yyerror("Redeclared Symbol\n");
+			yyerror("Redeclared Symbol!");
 		}
 	}
 	;
@@ -185,12 +191,12 @@ var_decl
 					break;
 
 				default:
-					yyerror("Unsupported type in variable decl.\n");
+					yyerror("Unsupported type in variable decl!");
 					break;
 			} 
 		}
 		else{
-			yyerror("Redeclared Symbol\n");
+			yyerror("Redeclared Symbol!");
 		}
 	}
 	| type_spec ID ASGN expression SEMICOLON {
@@ -218,12 +224,12 @@ var_decl
 				// No need to cast bool->bool
 			}
 			else {
-				yyerror("Type mismatch error\n");
+				yyerror("Type mismatch error!");
 			}
 			genStore(node);
 		}
 		else{
-			yyerror("Redeclared Symbol\n");
+			yyerror("Redeclared Symbol!");
 		}
 	}
 	;
@@ -260,6 +266,9 @@ func_def
 		// Generate Param Types
 		struct TypeList* ptr = temp_attribute->params;
 		if(!strcmp($2, "main")){
+			if(temp_attribute->paramNum != 0){
+				yyerror("Main function should not have parameter!");
+			}
 			codeGen(type2Code(STRING_t));
 		}
 		else{
@@ -273,6 +282,9 @@ func_def
 		// Generate Return Type
 		if(!strcmp($2, "main")){
 			codeGen(type2Code(VOID_t));
+			if($1 != VOID_t){
+				yyerror("Main function should return void!");
+			}
 			func_ret = VOID_t;
 		}
 		else{
@@ -486,7 +498,7 @@ print_stmt
 			genPrint(node->data_type);
 		}
 		else{
-			yyerror("Undefined Variable in print()!\n");
+			yyerror("Undefined Variable in print()!");
 		}
 	}
     | PRINT LB constant RB SEMICOLON { genPrint($3); }
@@ -591,12 +603,13 @@ int main(int argc, char** argv)
 
 void yyerror(char *s)
 {
-    printf("\n|-----------------------------------------------|\n");
-    printf("| Error found in line %d: %s\n", yylineno, buf);
-    printf("| %s", s);
-    printf("\n| Unmatched token: %s", yytext);
-    printf("\n|-----------------------------------------------|\n");
-    exit(-1);
+    if(!strcmp(s, "syntax error")){
+		syntax_error_flag = true;
+	}
+	else{
+		semantic_error_flag = true;
+		strncpy(err_msg, s, strlen(s));
+	}
 }
 
 /* stmbol table functions */

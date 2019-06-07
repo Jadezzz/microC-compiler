@@ -5,6 +5,7 @@
 #define NIL (void*)-1
 #include <stdbool.h>
 
+
 typedef enum { BOOLEAN_t, VOID_t, INTEGER_t, FLOAT_t, STRING_t, \
                VARIABLE_t, FUNCTION_t, PARAMETER_t } TYPE;
 typedef enum {

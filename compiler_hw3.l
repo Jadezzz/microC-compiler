@@ -5,11 +5,15 @@
 
 char buf[BUF_SIZE];
 char string_buf[BUF_SIZE];
+extern char err_msg[BUF_SIZE];
 
 extern YYSTYPE yylval; //YYSTYPE
 extern bool dump_flag;
 extern bool display_flag;
 extern void dumpTable();
+
+int semantic_error_flag=false;
+int syntax_error_flag=false;
 
 /* This macro is used to record code line */
 #define CONCAT { strncat(buf, yytext, BUF_SIZE - strlen(buf) - 1); }
@@ -143,11 +147,31 @@ id			{letter}+({letter}|{digit})*
                   printf("%d: %s\n",yylineno, buf);
               }
 
-              memset(buf, '\0', BUF_SIZE);
-
               if(dump_flag){
                 dumpTable();
               }
+
+              if(semantic_error_flag) {
+                  printf("\n|-----------------------------------------------|\n");
+                  printf("| Error found in line %d: %s\n", yylineno, buf);
+                  printf("| %s", err_msg);
+                  printf("\n|-----------------------------------------------|\n\n");
+                  semantic_error_flag = false;
+                  memset(err_msg, '\0', BUF_SIZE);
+              }
+
+              if(syntax_error_flag){
+                  printf("\n|-----------------------------------------------|\n");
+                  printf("| Error found in line %d: %s\n", yylineno, buf);
+                  printf("| syntax error");
+                  printf("\n|-----------------------------------------------|\n\n");
+                  syntax_error_flag = false;
+                  memset(err_msg, '\0', BUF_SIZE);
+
+                  exit(1);
+              }
+
+              memset(buf, '\0', BUF_SIZE);
             }
 [ \t]		{ CONCAT }
 [^ \t\n] 	{ CONCAT } /* Other charactor sets */
