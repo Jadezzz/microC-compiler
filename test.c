@@ -6,7 +6,7 @@ int foo1(int a, int b){
     return c;
 }
 
-bool foo2(bool c){
+bool foo2(bool c, int k, int kk, float kkk){
     c = true;
     return true;
 }

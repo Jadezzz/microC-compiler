@@ -158,7 +158,7 @@ global_var_decl
 			}
 		}
 		else{
-			yyerror("Redeclared Symbol!");
+			yyerror("Redeclared Variable");
 		}
 	}
 	;
@@ -229,7 +229,7 @@ var_decl
 			genStore(node);
 		}
 		else{
-			yyerror("Redeclared Symbol!");
+			yyerror("Redeclared Variable");
 		}
 	}
 	;
