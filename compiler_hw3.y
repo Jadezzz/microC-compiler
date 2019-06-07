@@ -104,8 +104,18 @@ decl
 	| fun_decl
 	;
 
+global_constant
+	: I_CONST 
+	| F_CONST 
+	| SUB I_CONST 
+	| SUB F_CONST 
+	| TRUE 
+	| FALSE 
+	| STRING_CONST
+	;
+
 global_var_decl
-	: type_spec ID ASGN constant SEMICOLON {
+	: type_spec ID ASGN global_constant SEMICOLON {
 		// TODO: NOT DONE 
 		// We can assume type will always be correct 
 		if(lookupSymbol($2, false) == NIL){
