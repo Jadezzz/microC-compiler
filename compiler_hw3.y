@@ -48,6 +48,7 @@ char* type2String(TYPE type);
 char* type2Code(TYPE type);
 void dumpTable();
 struct SymNode* lookupSymbol(char* name, bool recursive);
+bool assertAttributes(struct FuncAttr* a_attr, struct FuncAttr* b_attr);
 
 struct FuncAttr* temp_attribute = NIL;
 void addParam(TYPE type, char* name);
@@ -59,6 +60,7 @@ void genPrint(TYPE type);
 void codeGen(char const *s);
 void genStore(struct SymNode* node);
 void genLoad(struct SymNode* node);
+void genLoadStatic(struct SymNode* node);
 
 %}
 
@@ -124,7 +126,6 @@ global_constant
 	| SUB F_CONST { yylval.f_val *= -1; }
 	| TRUE 
 	| FALSE 
-	| STRING_CONST
 	;
 
 global_var_decl
@@ -243,7 +244,35 @@ type_spec
 	;
 
 func_decl
-	: type_spec ID LB params RB SEMICOLON
+	: type_spec ID LB params RB SEMICOLON {
+		// Deal with no parameter 
+		if(temp_attribute == NIL){
+			temp_attribute = malloc(sizeof(struct FuncAttr));
+			temp_attribute->paramNum = 0;
+			temp_attribute->params = malloc(sizeof(struct TypeList));
+			temp_attribute->params->type = VOID_t;
+			temp_attribute->params->next = NIL;
+		}
+
+		// Insert to symbol table, check for redeclear first
+		struct SymNode* node = lookupSymbol($2, false);
+		if(node == NIL){
+			insertNode($2, FUNCTION_t, $1, false, false);
+		}
+		else if(node != NIL && node->entry_type == FUNCTION_t){
+			if(node->isFuncDefine == false){
+				yyerror("Redeclared Function");
+			}
+			if($1 != node->data_type){
+				yyerror("Function return type is not the same");
+			}
+			if(!assertAttributes(temp_attribute, node->attribute)){
+				yyerror("Function formal parameter is not the same");
+			}
+		}
+
+		temp_attribute = NIL;
+	}
 	;
 func_def
 	: type_spec ID LB params RB { 
@@ -257,9 +286,23 @@ func_def
 			temp_attribute->params->next = NIL;
 		}
 		
-		// Insert to symbol table
-		// TODO:  redeclear check!
-		insertNode($2, FUNCTION_t, $1, true, false);
+		// Insert to symbol table, check for redeclear first
+		struct SymNode* node = lookupSymbol($2, false);
+		if(node == NIL){
+			insertNode($2, FUNCTION_t, $1, true, false);
+		}
+		else if(node != NIL && node->entry_type == FUNCTION_t){
+			if(node->isFuncDefine == true){
+				yyerror("Redefined Function");
+			}
+			if($1 != node->data_type){
+				yyerror("Function return type is not the same");
+			}
+			if(!assertAttributes(temp_attribute, node->attribute)){
+				yyerror("Function formal parameter is not the same");
+			}
+		}
+	
         codeGen(".method public static ");
 		codeGen($2);
 		codeGen("(");
@@ -445,7 +488,13 @@ parenthesis_clause
 	| ID { 
 		struct SymNode* node = lookupSymbol($1, true);
 		$$=node->data_type; 
-		genLoad(node);
+		if(node->scope != 0){
+			genLoad(node);
+		}
+		else{
+			// Load from static
+			genLoadStatic(node);
+		}
 	}
 	| func_invoke_stmt { //TEMP!!!
 						 $$=INTEGER_t; }
@@ -494,7 +543,12 @@ print_stmt
 	: PRINT LB ID RB SEMICOLON { 	
 		struct SymNode* node = lookupSymbol($3, true);
 		if( node != NIL){
-			genLoad(node);
+			if(node->scope == 0){
+				genLoadStatic(node);
+			}
+			else{
+				genLoad(node);
+			}
 			genPrint(node->data_type);
 		}
 		else{
@@ -549,10 +603,6 @@ return_stmt
 		else if(func_ret == FLOAT_t && $2 == FLOAT_t){
 			// No need to cast float->float
 			codeGen("\tfreturn\n");
-		}
-		else if(func_ret == STRING_t && $2 == STRING_t){
-			// No need to cast string->string
-			codeGen("\tareturn\n");
 		}
 		else if(func_ret == BOOLEAN_t && $2 == BOOLEAN_t){
 			// No need to cast bool->bool
@@ -905,7 +955,24 @@ void addParam(TYPE type, char* name){
 	}
 }
 
+bool assertAttributes(struct FuncAttr* a_attr, struct FuncAttr* b_attr){
+	if(a_attr->paramNum != b_attr->paramNum){
+		return false;
+	}
+	int attr_count = a_attr->paramNum;	
+	struct TypeList* a_param = a_attr->params;
+	struct TypeList* b_param = b_attr->params;
 
+	while(attr_count--){
+		if(a_param->type != b_param->type){
+			return false;
+		}
+		a_param = a_param->next;
+		b_param = b_param->next;
+	}
+
+	return true;
+}
 
 /* code generation functions */
 void genPrint(TYPE type){
@@ -1000,4 +1067,12 @@ void genLoad(struct SymNode* node){
 			yyerror("Unable to generate load instruction\n");
 			break;
 	}
+}
+
+void genLoadStatic(struct SymNode* node){
+	char* name = node->name;
+	char* type = type2Code(node->data_type);
+
+	sprintf(code_buf,"\tgetstatic compiler_hw3/%s %s\n", name, type);
+	codeGen(code_buf);
 }
