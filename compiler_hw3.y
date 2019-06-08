@@ -347,8 +347,8 @@ func_def
 		
 		codeGen("\n");
 
-		codeGen(".limit stack 50\n");
-		codeGen(".limit locals 50\n");		
+		codeGen(".limit stack 51\n");
+		codeGen(".limit locals 51\n");		
 
 
 		// Open a new table, insert params first
@@ -1160,11 +1160,11 @@ TYPE doMul(TYPE left, TYPE right){
 	}
 	else if(left == INTEGER_t && right == FLOAT_t){
 		// save to temp register
-		codeGen("\tfstore 49\n");
+		codeGen("\tfstore 50\n");
 		// change type
 		codeGen("\ti2f\n");
 		// push back
-		codeGen("\tfload 49\n");
+		codeGen("\tfload 50\n");
 		codeGen("\tfmul\n");
 		return FLOAT_t;
 	}
@@ -1190,11 +1190,11 @@ TYPE doDiv(TYPE left, TYPE right){
 	}
 	else if(left == INTEGER_t && right == FLOAT_t){
 		// save to temp register
-		codeGen("\tfstore 49\n");
+		codeGen("\tfstore 50\n");
 		// change type
 		codeGen("\ti2f\n");
 		// push back
-		codeGen("\tfload 49\n");
+		codeGen("\tfload 50\n");
 		codeGen("\tfdiv\n");
 		return FLOAT_t;
 	}
@@ -1242,11 +1242,11 @@ TYPE doAdd(TYPE left, TYPE right){
 	}
 	else if(left == INTEGER_t && right == FLOAT_t){
 		// save to temp register
-		codeGen("\tfstore 49\n");
+		codeGen("\tfstore 50\n");
 		// change type
 		codeGen("\ti2f\n");
 		// push back
-		codeGen("\tfload 49\n");
+		codeGen("\tfload 50\n");
 		codeGen("\tfadd\n");
 		return FLOAT_t;
 	}
@@ -1271,11 +1271,11 @@ TYPE doSub(TYPE left, TYPE right){
 	}
 	else if(left == INTEGER_t && right == FLOAT_t){
 		// save to temp register
-		codeGen("\tfstore 49\n");
+		codeGen("\tfstore 50\n");
 		// change type
 		codeGen("\ti2f\n");
 		// push back
-		codeGen("\tfload 49\n");
+		codeGen("\tfload 50\n");
 		codeGen("\tfsub\n");
 		return FLOAT_t;
 	}
