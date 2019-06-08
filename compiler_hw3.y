@@ -62,8 +62,15 @@ void genStore(struct SymNode* node);
 void genLoad(struct SymNode* node);
 void genLoadStatic(struct SymNode* node);
 void doPostfixExpr(OPERATOR op, struct SymNode* node);
+
 TYPE doMultExpr(OPERATOR op, TYPE left, TYPE right);
-TYPE mul(TYPE left, TYPE right);
+TYPE doMul(TYPE left, TYPE right);
+TYPE doDiv(TYPE left, TYPE right);
+TYPE doMod(TYPE left, TYPE right);
+
+TYPE doAddExpr(OPERATOR op, TYPE left, TYPE right);
+TYPE doAdd(TYPE left, TYPE right);
+TYPE doSub(TYPE left, TYPE right);
 
 %}
 
@@ -228,7 +235,7 @@ var_decl
 				// No need to cast bool->bool
 			}
 			else {
-				yyerror("Type mismatch error!");
+				//yyerror("Type mismatch error!");
 			}
 			genStore(node);
 		}
@@ -471,8 +478,9 @@ cmp_op
 
 addition_expr
 	: multiplication_expr { $$=$1; }
-	| addition_expr add_op multiplication_expr { //TEMP!!!
-												 $$=INTEGER_t; }
+	| addition_expr add_op multiplication_expr {
+		$$=doAddExpr($2, $1, $3); 
+	}
 	;
 
 add_op
@@ -623,7 +631,7 @@ return_stmt
 			codeGen("\tireturn\n");
 		}
 		else {
-			yyerror("Return Type mismatch error");
+			//yyerror("Return Type mismatch error");
 		}
 	
 	}
@@ -1131,21 +1139,21 @@ void doPostfixExpr(OPERATOR op, struct SymNode* node){
 TYPE doMultExpr(OPERATOR op, TYPE left, TYPE right){
 	switch(op){
 	case MUL_t:
-		return mul(left, right);
+		return doMul(left, right);
 		break;
 	
 	case DIV_t:
-
+		return doDiv(left, right);
 		break;
 
 	case MOD_t:
-
+		return doMod(left, right);
 		break;
 
 	}
 }
 
-TYPE mul(TYPE left, TYPE right){
+TYPE doMul(TYPE left, TYPE right){
 	if(left == INTEGER_t && right == INTEGER_t){
 		codeGen("\timul\n");
 		return INTEGER_t;
@@ -1172,5 +1180,116 @@ TYPE mul(TYPE left, TYPE right){
 	}
 	else{
 		yyerror("Only int and float can do multiplication");
+	}
+}
+
+TYPE doDiv(TYPE left, TYPE right){
+	if(left == INTEGER_t && right == INTEGER_t){
+		codeGen("\tidiv\n");
+		return INTEGER_t;
+	}
+	else if(left == INTEGER_t && right == FLOAT_t){
+		// save to temp register
+		codeGen("\tfstore 49\n");
+		// change type
+		codeGen("\ti2f\n");
+		// push back
+		codeGen("\tfload 49\n");
+		codeGen("\tfdiv\n");
+		return FLOAT_t;
+	}
+	else if(left == FLOAT_t && right == FLOAT_t){
+		codeGen("\tfdiv\n");
+		return FLOAT_t;
+	}
+	else if(left == FLOAT_t && right == INTEGER_t){
+		// change to float
+		codeGen("\ti2f\n");
+		codeGen("\tfdiv\n");
+		return FLOAT_t;
+	}
+	else{
+		yyerror("Only int and float can do division");
+	}
+}
+
+TYPE doMod(TYPE left, TYPE right){
+	if(left == INTEGER_t && right == INTEGER_t){
+		codeGen("\tirem\n");
+		return INTEGER_t;
+	}
+	else{
+		yyerror("Only int can do mod");
+	}
+}
+
+
+TYPE doAddExpr(OPERATOR op, TYPE left, TYPE right){
+	switch(op){
+	case ADD_t:
+		return doAdd(left, right);
+		break;
+	
+	case SUB_t:
+		return doSub(left, right);
+		break;
+	}
+}
+TYPE doAdd(TYPE left, TYPE right){
+	if(left == INTEGER_t && right == INTEGER_t){
+		codeGen("\tiadd\n");
+		return INTEGER_t;
+	}
+	else if(left == INTEGER_t && right == FLOAT_t){
+		// save to temp register
+		codeGen("\tfstore 49\n");
+		// change type
+		codeGen("\ti2f\n");
+		// push back
+		codeGen("\tfload 49\n");
+		codeGen("\tfadd\n");
+		return FLOAT_t;
+	}
+	else if(left == FLOAT_t && right == FLOAT_t){
+		codeGen("\tfadd\n");
+		return FLOAT_t;
+	}
+	else if(left == FLOAT_t && right == INTEGER_t){
+		// change to float
+		codeGen("\ti2f\n");
+		codeGen("\tfadd\n");
+		return FLOAT_t;
+	}
+	else{
+		yyerror("Only int and float can do addition");
+	}
+}
+TYPE doSub(TYPE left, TYPE right){
+	if(left == INTEGER_t && right == INTEGER_t){
+		codeGen("\tisub\n");
+		return INTEGER_t;
+	}
+	else if(left == INTEGER_t && right == FLOAT_t){
+		// save to temp register
+		codeGen("\tfstore 49\n");
+		// change type
+		codeGen("\ti2f\n");
+		// push back
+		codeGen("\tfload 49\n");
+		codeGen("\tfsub\n");
+		return FLOAT_t;
+	}
+	else if(left == FLOAT_t && right == FLOAT_t){
+		codeGen("\tfsub\n");
+		return FLOAT_t;
+	}
+	else if(left == FLOAT_t && right == INTEGER_t){
+		// change to float
+		codeGen("\ti2f\n");
+		codeGen("\tfsub\n");
+		return FLOAT_t;
+	}
+	else{
+		yyerror("Only int and float can do subtraction");
 	}
 }
