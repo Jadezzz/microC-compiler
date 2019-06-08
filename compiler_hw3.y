@@ -24,6 +24,8 @@ void yyerror(char *s);
 
 TYPE func_ret = VOID_t;
 
+int label=0;
+
 /* symbol table functions */
 int var_count = 0;
 
@@ -72,6 +74,7 @@ TYPE doAddExpr(OPERATOR op, TYPE left, TYPE right);
 TYPE doAdd(TYPE left, TYPE right);
 TYPE doSub(TYPE left, TYPE right);
 
+void doCompExpr(OPERATOR op, TYPE left, TYPE right);
 %}
 
 /* Present nonterminal and token type */
@@ -464,7 +467,10 @@ and_expr
 
 comparison_expr
 	: addition_expr { $$=$1; } 
-	| comparison_expr cmp_op addition_expr { $$=BOOLEAN_t; }
+	| comparison_expr cmp_op addition_expr { 
+		doCompExpr($2, $1, $3);
+		$$=BOOLEAN_t; 
+	}
 	;
 
 cmp_op
@@ -1020,6 +1026,12 @@ void genPrint(TYPE type){
 		codeGen(code_buf);
 		break;
 	
+	case BOOLEAN_t:
+		sprintf(code_buf, "\tinvokevirtual java/io/PrintStream/println(I)V\n");
+		codeGen(code_buf);
+		break;
+
+	
 	default:
 		yyerror("Unsupported Type in print() !");
 	}
@@ -1292,4 +1304,86 @@ TYPE doSub(TYPE left, TYPE right){
 	else{
 		yyerror("Only int and float can do subtraction");
 	}
+}
+
+
+void doCompExpr(OPERATOR op, TYPE left, TYPE right){
+	if(left == INTEGER_t && right == INTEGER_t){
+		// change right to float
+		codeGen("\ti2f\n");
+		// save right to register
+		codeGen("\tfstore 50\n");
+		// change left to float
+		codeGen("\ti2f\n");
+		// pushback right
+		codeGen("\tfload 50\n");
+	}
+	else if(left == INTEGER_t && right == FLOAT_t){
+		// save right to register
+		codeGen("\tfstore 50\n");
+		// change left to float
+		codeGen("\ti2f\n");
+		// pushback right
+		codeGen("\tfload 50\n");
+	}
+	else if(left == FLOAT_t && right == FLOAT_t){
+		// no need to cast
+	}
+	else if(left == FLOAT_t && right == INTEGER_t){
+		codeGen("\ti2f\n");
+	}
+	else{
+		yyerror("Unsupported data type for comparison");
+	}
+
+	// Do compare
+	codeGen("\tfcmpl\n");
+
+	char label_name[10];
+	char op_code[10];
+
+	switch(op){
+	case LT_t:
+		sprintf(op_code, "iflt");
+		sprintf(label_name, "LT");
+		break;
+	
+	case MT_t:
+		sprintf(op_code, "ifgt");
+		sprintf(label_name, "MT");
+		break;
+
+	case LTE_t:
+		sprintf(op_code, "ifle");
+		sprintf(label_name, "LTE");
+		break;
+
+	case MTE_t:
+		sprintf(op_code, "ifge");
+		sprintf(label_name, "MTE");
+		break;
+
+	case EQ_t:
+		sprintf(op_code, "ifeq");
+		sprintf(label_name, "EQ");
+		break;
+
+	case NE_t:
+		sprintf(op_code, "ifne");
+		sprintf(label_name, "NE");
+		break;
+	}
+
+	sprintf(code_buf, "\t%s L_%s_TRUE_%d\n", op_code, label_name, label);
+	codeGen(code_buf);
+	codeGen("\ticonst_0\n");
+	sprintf(code_buf, "\tgoto L_%s_FALSE_%d\n", label_name, label);
+	codeGen(code_buf);
+	sprintf(code_buf, "L_%s_TRUE_%d:\n", label_name, label);
+	codeGen(code_buf);
+	codeGen("\ticonst_1\n");
+	sprintf(code_buf,"L_%s_FALSE_%d:\n", label_name, label);
+	codeGen(code_buf);
+
+	label++;
 }
