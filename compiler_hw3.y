@@ -53,7 +53,8 @@ struct SymNode* lookupSymbol(char* name, bool recursive);
 bool assertAttributes(struct FuncAttr* a_attr, struct FuncAttr* b_attr);
 
 struct FuncAttr* temp_attribute = NIL;
-void addParam(TYPE type, char* name);
+struct TypeList* temp_param = NIL;
+void addAttribute(TYPE type, char* name);
 
 
 
@@ -75,6 +76,9 @@ TYPE doAdd(TYPE left, TYPE right);
 TYPE doSub(TYPE left, TYPE right);
 
 void doCompExpr(OPERATOR op, TYPE left, TYPE right);
+
+void doFuncCallArg(TYPE type);
+void doInvokeFunc(struct SymNode* node);
 %}
 
 /* Present nonterminal and token type */
@@ -107,7 +111,7 @@ void doCompExpr(OPERATOR op, TYPE left, TYPE right);
 /* Nonterminal with return */
 %type <type> type_spec constant expression or_expr and_expr
 %type <type> comparison_expr addition_expr multiplication_expr
-%type <type> parenthesis_clause
+%type <type> parenthesis_clause func_invoke_stmt
 %type <op> assign_op cmp_op add_op mul_op post_op 
 
 /* Yacc start nonterminal */
@@ -388,7 +392,7 @@ param_list
 
 param
 	: type_spec ID {
-		addParam($1, $2);
+		addAttribute($1, $2);
 	}
 	|
 	;
@@ -524,8 +528,7 @@ parenthesis_clause
 			genLoadStatic(node);
 		}
 	}
-	| func_invoke_stmt { //TEMP!!!
-						 $$=INTEGER_t; }
+	| func_invoke_stmt
 	| LB expression RB { $$=$2; }
 	;
 
@@ -643,16 +646,40 @@ return_stmt
 	}
 
 func_invoke_stmt
-	: ID LB args RB
+	: ID {
+		struct SymNode* node = lookupSymbol($1, true);
+		if(node->scope != 0 || node->entry_type != FUNCTION_t){
+			yyerror("Undeclared Function");
+		}
+		else{
+			temp_attribute = node->attribute;
+			temp_param = temp_attribute->params;
+		}
+	} LB args RB {
+		struct SymNode* node = lookupSymbol($1, true);
+		doInvokeFunc(node);
+		$$=node->data_type;
+	}
 
 arg_list
-	: arg_list COMMA expression
-	| expression
+	: arg_list COMMA expression{
+		doFuncCallArg($3);
+		if(temp_param != NIL){
+			yyerror("Function formal parameter is not the same");
+		}
+	}
+	| expression {
+		doFuncCallArg($1);
+	}
 	;
 
 args
 	: arg_list
-	|
+	| {
+		if(temp_attribute->paramNum != 0){
+			yyerror("Function formal parameter is not the same");
+		}
+	}
 	;
 
 
@@ -956,7 +983,7 @@ struct SymNode* lookupSymbol(char* name, bool recursive){
 	}
 }
 
-void addParam(TYPE type, char* name){
+void addAttribute(TYPE type, char* name){
 	if(temp_attribute == NIL){
 		temp_attribute = malloc(sizeof(struct FuncAttr));
 		temp_attribute->paramNum = 1;
@@ -1386,4 +1413,33 @@ void doCompExpr(OPERATOR op, TYPE left, TYPE right){
 	codeGen(code_buf);
 
 	label++;
+}
+
+void doFuncCallArg(TYPE type){
+	if(type != temp_param->type){
+		if (type == INTEGER_t && temp_param->type == FLOAT_t){
+			codeGen("\ti2f\n");
+		}
+		else {
+			yyerror("Function formal parameter is not the same");
+		}
+	}
+	temp_param = temp_param -> next;
+}
+
+
+void doInvokeFunc(struct SymNode* node){
+	codeGen("\tinvokestatic compiler_hw3/");
+	codeGen(node->name);
+	codeGen("(");
+	// Generate Param Types
+	struct TypeList* ptr = node->attribute->params;
+	while(ptr != NIL){
+		codeGen(type2Code(ptr->type));
+		ptr = ptr->next;
+	}
+	codeGen(")");
+	// Generate Return Type
+	codeGen(type2Code(node->data_type));
+	codeGen("\n");
 }

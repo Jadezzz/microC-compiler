@@ -1,9 +1,9 @@
-void main(){
-    int a = 4;
-    float b = 123 / 30; 
-    print(b);
-    bool c = a > b;
+int sub(int a, int b){
+    return a-b;
+}
 
+void main(){
+    int c = sub(3, 4);
     print(c);
     return;
 }
