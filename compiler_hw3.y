@@ -242,7 +242,7 @@ var_decl
 				// No need to cast bool->bool
 			}
 			else {
-				//yyerror("Type mismatch error!");
+				yyerror("Type mismatch error!");
 			}
 			genStore(node);
 		}
@@ -528,7 +528,7 @@ parenthesis_clause
 			genLoadStatic(node);
 		}
 	}
-	| func_invoke_stmt
+	| func_invoke_stmt { $$=$1;  }
 	| LB expression RB { $$=$2; }
 	;
 
@@ -787,7 +787,10 @@ void dumpTable(void){
                 int param_num = ptr->attribute->paramNum;
                 struct TypeList* param_ptr = ptr->attribute->params;
                 struct TypeList* del_param_ptr = NIL;
-                while(param_num--){
+                if (param_num == 0){
+					printf("\n");
+				}
+				while(param_num--){
                     if(display_flag){
                         if(param_num == 0){
                             printf("%s\n", type2String(param_ptr->type));
@@ -801,6 +804,7 @@ void dumpTable(void){
                     free(del_param_ptr);
                 }
                 free(ptr->attribute);
+				
             }
 			else{
 				if(display_flag){

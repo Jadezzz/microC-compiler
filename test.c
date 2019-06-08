@@ -1,9 +1,10 @@
-int sub(int a, int b){
-    return a-b;
+int lol(int a){
+    return a;
 }
 
 void main(){
-    int c = sub(3, 4);
-    print(c);
+    int a = 10;
+    int b = a + lol(a);
+    print(b);
     return;
 }
