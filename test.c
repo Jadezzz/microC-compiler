@@ -2,9 +2,10 @@ int out = -1;
 
 
 void main(){
-    float a = 3.1415;
-    float b = out;
-    print(b);
+    int a = 10;
+    float b = 2.33;
+    float c = a*b;
+    print(c);
     return;
 }
 

@@ -61,6 +61,9 @@ void codeGen(char const *s);
 void genStore(struct SymNode* node);
 void genLoad(struct SymNode* node);
 void genLoadStatic(struct SymNode* node);
+void doPostfixExpr(OPERATOR op, struct SymNode* node);
+TYPE doMultExpr(OPERATOR op, TYPE left, TYPE right);
+TYPE mul(TYPE left, TYPE right);
 
 %}
 
@@ -94,7 +97,7 @@ void genLoadStatic(struct SymNode* node);
 /* Nonterminal with return */
 %type <type> type_spec constant expression or_expr and_expr
 %type <type> comparison_expr addition_expr multiplication_expr
-%type <type> postfix_expr parenthesis_clause
+%type <type> parenthesis_clause
 %type <op> assign_op cmp_op add_op mul_op post_op 
 
 /* Yacc start nonterminal */
@@ -407,10 +410,27 @@ stmt
 	;
 
 expression_stmt
-	: expression SEMICOLON
+	: func_invoke_stmt SEMICOLON
+	| postfix_expr SEMICOLON
+	;
+
+postfix_expr
+ 	: ID post_op {
+		struct SymNode* node = lookupSymbol($1, true); 
+		if(node == NIL){
+			yyerror("Undeclared variable");
+		}
+		doPostfixExpr($2, node); 
+	}
+	;
+
+post_op
+	: INC { $$=INC_t; }
+	| DEC { $$=DEC_t; }
+	;
 
 assign_stmt
-	: ID assign_op expression SEMICOLON
+	: ID assign_op expression SEMICOLON 
 
 assign_op
 	: ASGN { $$=ASGN_t; }
@@ -461,9 +481,10 @@ add_op
 	;
 
 multiplication_expr
-	: postfix_expr { $$=$1; }
-	| multiplication_expr mul_op postfix_expr { //TEMP!!!
-												 $$=INTEGER_t; }
+	: parenthesis_clause { $$=$1; }
+	| multiplication_expr mul_op parenthesis_clause { 
+		$$=doMultExpr($2, $1, $3);
+	}
 	;
 
 mul_op
@@ -472,21 +493,14 @@ mul_op
 	| MOD { $$=MOD_t; }
 	;
 
-postfix_expr
-	: parenthesis_clause { $$=$1; }
- 	| parenthesis_clause post_op { //TEMP!!!
-								   $$=INTEGER_t; }
-	;
-
-post_op
-	: INC { $$=INC_t; }
-	| DEC { $$=DEC_t; }
-	;
 
 parenthesis_clause
 	: constant { $$=$1; }
 	| ID { 
 		struct SymNode* node = lookupSymbol($1, true);
+		if(node == NIL){
+			yyerror("Undeclared variable");
+		}
 		$$=node->data_type; 
 		if(node->scope != 0){
 			genLoad(node);
@@ -1075,4 +1089,88 @@ void genLoadStatic(struct SymNode* node){
 
 	sprintf(code_buf,"\tgetstatic compiler_hw3/%s %s\n", name, type);
 	codeGen(code_buf);
+}
+
+void doPostfixExpr(OPERATOR op, struct SymNode* node){
+	genLoad(node);
+	switch(op){
+	case INC_t:
+		if(node->data_type == INTEGER_t){
+			codeGen("\tldc 1\n");
+			codeGen("\tiadd\n");
+			genStore(node);
+		}
+		else if(node->data_type == FLOAT_t){
+			codeGen("\tldc 1.0\n");
+			codeGen("\tfadd\n");
+			genStore(node);
+		}
+		else{
+			yyerror("Only int and float can do post expression");
+		}
+		break;
+		
+	case DEC_t:
+		if(node->data_type == INTEGER_t){
+			codeGen("\tldc 1\n");
+			codeGen("\tisub\n");
+			genStore(node);
+		}
+		else if(node->data_type == FLOAT_t){
+			codeGen("\tldc 1.0\n");
+			codeGen("\tfsub\n");
+			genStore(node);
+		}
+		else{
+			yyerror("Only int and float can do post expression");
+		}
+		break;
+	}
+}
+
+TYPE doMultExpr(OPERATOR op, TYPE left, TYPE right){
+	switch(op){
+	case MUL_t:
+		return mul(left, right);
+		break;
+	
+	case DIV_t:
+
+		break;
+
+	case MOD_t:
+
+		break;
+
+	}
+}
+
+TYPE mul(TYPE left, TYPE right){
+	if(left == INTEGER_t && right == INTEGER_t){
+		codeGen("\timul\n");
+		return INTEGER_t;
+	}
+	else if(left == INTEGER_t && right == FLOAT_t){
+		// save to temp register
+		codeGen("\tfstore 49\n");
+		// change type
+		codeGen("\ti2f\n");
+		// push back
+		codeGen("\tfload 49\n");
+		codeGen("\tfmul\n");
+		return FLOAT_t;
+	}
+	else if(left == FLOAT_t && right == FLOAT_t){
+		codeGen("\tfmul\n");
+		return FLOAT_t;
+	}
+	else if(left == FLOAT_t && right == INTEGER_t){
+		// change to float
+		codeGen("\ti2f\n");
+		codeGen("\tfmul\n");
+		return FLOAT_t;
+	}
+	else{
+		yyerror("Only int and float can do multiplication");
+	}
 }
