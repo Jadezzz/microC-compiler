@@ -333,7 +333,9 @@ func_def
 		}
 		else{
 			while(ptr != NIL){
-				codeGen(type2Code(ptr->type));
+				if(ptr->type != VOID_t){
+					codeGen(type2Code(ptr->type));
+				}
 				ptr = ptr->next;
 			}
 		}
@@ -1439,7 +1441,9 @@ void doInvokeFunc(struct SymNode* node){
 	// Generate Param Types
 	struct TypeList* ptr = node->attribute->params;
 	while(ptr != NIL){
-		codeGen(type2Code(ptr->type));
+		if(ptr->type != VOID_t){
+			codeGen(type2Code(ptr->type));
+		}
 		ptr = ptr->next;
 	}
 	codeGen(")");
