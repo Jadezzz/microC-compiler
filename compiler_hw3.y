@@ -400,7 +400,7 @@ param
 	;
 
 function_compound_stmt
-	: LCB content_list return_stmt RCB { removeTable(true); codeGen(".end method\n"); }
+	: LCB content_list  RCB { removeTable(true); codeGen(".end method\n"); }
 	;
 
 compound_stmt
@@ -418,6 +418,7 @@ content
 
 stmt
 	: assign_stmt
+	| return_stmt
 	| expression_stmt
 	| compound_stmt 
 	| if_stmt
