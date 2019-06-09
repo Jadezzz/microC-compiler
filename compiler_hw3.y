@@ -5,30 +5,29 @@
 #include "header.h" // include header if needed
 #include <string.h>
 
-
+// Flags and Variables for lex
 extern int yylineno;
 extern int yylex();
 extern char *yytext; // Get current token from lex
 extern char buf[BUF_SIZE]; // Get current code line from lex
-
-
 extern bool semantic_error_flag;
 extern bool syntax_error_flag;
-
 char err_msg[BUF_SIZE];
+
+// For temp code buffer
 char code_buf[BUF_SIZE];
 
-FILE *file; // To generate .j file for Jasmin
+// To generate .j file for Jasmin
+FILE *file; 
 
 void yyerror(char *s);
 
 TYPE func_ret = VOID_t;
 
 int cmp_label=0;
-
+int scope = 0;
 /* symbol table functions */
 int var_count = 0;
-
 
 bool err_flag = false;
 // Flags for lexer
@@ -36,12 +35,8 @@ bool dump_flag = false;
 bool display_flag = false;
 
 // Only head of the symbol table
-
-
 struct SymTable* HEAD = NIL;
 struct SymTable* DUMP = NIL;
-
-int scope = 0;
 
 struct SymTable newTable();
 void removeTable(bool display_flag);
@@ -55,8 +50,6 @@ bool assertAttributes(struct FuncAttr* a_attr, struct FuncAttr* b_attr);
 struct FuncAttr* temp_attribute = NIL;
 struct TypeList* temp_param = NIL;
 void addAttribute(TYPE type, char* name);
-
-
 
 /* code generation functions */
 void genPrint(TYPE type);
@@ -104,13 +97,11 @@ void doGlobalVarDecl(char* name, TYPE type, bool hasValue);
 %token AND OR NOT
 %token LB RB LCB RCB LSB RSB COMMA
 %token TRUE FALSE RET
+%token I_CONST F_CONST STRING_CONST
+%token VOID INT FLOAT BOOL STRING
 
 /* Token with return */
-%token I_CONST
-%token F_CONST
-%token STRING_CONST
 %token <lexeme> ID
-%token VOID INT FLOAT BOOL STRING
 
 /* Nonterminal with return */
 %type <type> type_spec constant expression or_expr and_expr
@@ -749,11 +740,16 @@ int main(int argc, char** argv)
 
     fclose(file);
 
+	if(err_flag){
+		remove("compiler_hw3.j");
+	}
+	
     return 0;
 }
 
 void yyerror(char *s)
 {
+	err_flag = true;
     if(!strcmp(s, "syntax error")){
 		syntax_error_flag = true;
 	}
