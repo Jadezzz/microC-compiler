@@ -1,29 +1,22 @@
-void lol(int num){
-    while(num > 0){
-        print("in lol");
-        print(num);
-        num --;
-    }
-    return;
-}
-
 void main(){
     int a = 10;
-    int b = 0;
-    while(a > 0){
-        print(a);
-        a --;
-        while(b <= 5){
-            print(b);
-            b++;
+    int b = 2;
+    int c = 1;
+    if(a > b){
+        print("a > b");
+        if ( c == 1 ){
+            print("c == 1");
+        }else{
+            print("c != 1");
         }
+    } else if (a < b){
+        print("a < b");
+    } else {
+        print("a = b");
     }
-    print(b);
-    int c=3;
-    while (b < 10){
-        b++;
-        print(b);
-        lol(c);
+
+    if(a == 10){
+        print("YES");
     }
     return;
 }

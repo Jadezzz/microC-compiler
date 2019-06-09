@@ -612,11 +612,38 @@ while_stmt
 	}
 
 if_stmt
-	: IF LB expression RB compound_stmt else_if_stmt else_stmt
+	: IF LB expression RB {
+		HEAD->elif_count = 0;
+		sprintf(code_buf, "\tifeq L_THEN%d_%d_%d\n",HEAD->elif_count, HEAD->if_count, HEAD->scope);
+		codeGen(code_buf);
+	}compound_stmt {
+		sprintf(code_buf, "\tgoto L_COND_EXIT_%d_%d\n", HEAD->if_count, HEAD->scope);
+		codeGen(code_buf);
+		sprintf(code_buf, "L_THEN%d_%d_%d",HEAD->elif_count, HEAD->if_count, HEAD->scope);
+		codeGen(code_buf);
+		codeGen(":\n");
+		HEAD->elif_count ++;
+	} else_if_stmt else_stmt {
+		sprintf(code_buf, "L_COND_EXIT_%d_%d", HEAD->if_count, HEAD->scope);
+		codeGen(code_buf);
+		codeGen(":\n");
+		HEAD->if_count++;
+		HEAD->elif_count = 0;
+	}
 	;
 
 else_if_stmt
-	: else_if_stmt ELSE IF LB expression RB compound_stmt 
+	: else_if_stmt ELSE IF LB expression RB {
+		sprintf(code_buf, "\tifeq L_THEN%d_%d_%d\n",HEAD->elif_count, HEAD->if_count, HEAD->scope);
+		codeGen(code_buf);
+	}compound_stmt {
+		sprintf(code_buf, "\tgoto L_COND_EXIT_%d_%d\n", HEAD->if_count, HEAD->scope);
+		codeGen(code_buf);
+		sprintf(code_buf, "L_THEN%d_%d_%d",HEAD->elif_count, HEAD->if_count, HEAD->scope);
+		codeGen(code_buf);
+		codeGen(":\n");
+		HEAD->elif_count ++;
+	}
 	|
 	;
 
@@ -744,6 +771,8 @@ struct SymTable newTable(){
     new_tab->first = NIL;
     new_tab->localVarCount = 0;
 	new_tab->while_count = 0;
+	new_tab->if_count = 0;
+	new_tab->elif_count = 0;
     new_tab->scope = scope;
     scope++;
 

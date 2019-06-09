@@ -42,6 +42,8 @@ struct SymTable {
     int localVarCount;
     int scope;
     int while_count;
+    int if_count;
+    int elif_count;
 };
 
 #endif
