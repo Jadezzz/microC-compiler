@@ -24,7 +24,7 @@ void yyerror(char *s);
 
 TYPE func_ret = VOID_t;
 
-int label=0;
+int cmp_label=0;
 int while_label=0;
 
 /* symbol table functions */
@@ -1425,18 +1425,18 @@ void doCompExpr(OPERATOR op, TYPE left, TYPE right){
 		break;
 	}
 
-	sprintf(code_buf, "\t%s L_%s_TRUE_%d\n", op_code, label_name, label);
+	sprintf(code_buf, "\t%s L_%s_TRUE_%d\n", op_code, label_name, cmp_label);
 	codeGen(code_buf);
 	codeGen("\ticonst_0\n");
-	sprintf(code_buf, "\tgoto L_%s_FALSE_%d\n", label_name, label);
+	sprintf(code_buf, "\tgoto L_%s_FALSE_%d\n", label_name, cmp_label);
 	codeGen(code_buf);
-	sprintf(code_buf, "L_%s_TRUE_%d:\n", label_name, label);
+	sprintf(code_buf, "L_%s_TRUE_%d:\n", label_name, cmp_label);
 	codeGen(code_buf);
 	codeGen("\ticonst_1\n");
-	sprintf(code_buf,"L_%s_FALSE_%d:\n", label_name, label);
+	sprintf(code_buf,"L_%s_FALSE_%d:\n", label_name, cmp_label);
 	codeGen(code_buf);
-
-	label++;
+	
+	cmp_label++;
 }
 
 void doFuncCallArg(TYPE type){
