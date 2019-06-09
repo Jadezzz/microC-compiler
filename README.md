@@ -14,11 +14,11 @@ $ make
 
 ```test.c``` can be any other file.
 
+Will produce ```compiler_hw3.j``` if no error occured.
+
 ```bash
 $ ./myparser < test.c 
 ```
-
-Will produce ```compiler_hw3.j``` if no error occured.
 
 ### Turn to JVM class
 
@@ -32,7 +32,4 @@ $ java -jar jasmin.jar compiler_hw3.j
 $ java compiler_hw3
 ```
 
-### See foder "myexamples" for more examples
-
 ## STAR THIS REPO if it helps you :)
-## Any kind of pull request is welcomed
