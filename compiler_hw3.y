@@ -694,7 +694,7 @@ return_stmt
 func_invoke_stmt
 	: ID {
 		struct SymNode* node = lookupSymbol($1, true);
-		if(node->scope != 0 || node->entry_type != FUNCTION_t){
+		if(node == NIL || node->scope != 0 || node->entry_type != FUNCTION_t){
 			yyerror("Undeclared Function");
 		}
 		else{
@@ -705,6 +705,7 @@ func_invoke_stmt
 		struct SymNode* node = lookupSymbol($1, true);
 		doInvokeFunc(node);
 		$$=node->data_type;
+		temp_attribute = NIL;
 	}
 
 arg_list
