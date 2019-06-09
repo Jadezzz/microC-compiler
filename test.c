@@ -6,11 +6,14 @@ void lol(){
 void main(){
     int a = 10;
     int b = 0;
-    while(a > b){
+    while(a > 0){
         print(a);
         a --;
-        b ++;
     }
     print(b);
+    while(b <=10){
+        print(b);
+        b++;
+    }
     return;
 }
