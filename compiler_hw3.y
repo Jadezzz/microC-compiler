@@ -25,7 +25,6 @@ void yyerror(char *s);
 TYPE func_ret = VOID_t;
 
 int cmp_label=0;
-int while_label=0;
 
 /* symbol table functions */
 int var_count = 0;
@@ -595,21 +594,21 @@ print_stmt
 
 while_stmt
 	: WHILE {
-		sprintf(code_buf, "L_WHILE_%d", while_label);
+		sprintf(code_buf, "L_WHILE_%d_%d", HEAD->while_count, HEAD->scope);
 		codeGen(code_buf);	
 		codeGen(":\n");
 	}
 	LB expression RB {
-		sprintf(code_buf, "\tifeq L_WHILE_EXIT_%d\n", while_label);
+		sprintf(code_buf, "\tifeq L_WHILE_EXIT_%d_%d\n", HEAD->while_count, HEAD->scope);
 		codeGen(code_buf);
 	}
 	compound_stmt{
-		sprintf(code_buf, "\tgoto L_WHILE_%d\n", while_label);
+		sprintf(code_buf, "\tgoto L_WHILE_%d_%d\n", HEAD->while_count, HEAD->scope);
 		codeGen(code_buf);
-		sprintf(code_buf, "L_WHILE_EXIT_%d", while_label);
+		sprintf(code_buf, "L_WHILE_EXIT_%d_%d", HEAD->while_count, HEAD->scope);
 		codeGen(code_buf);
 		codeGen(":\n");
-		while_label++;
+		HEAD->while_count++;
 	}
 
 if_stmt
@@ -744,6 +743,7 @@ struct SymTable newTable(){
 	
     new_tab->first = NIL;
     new_tab->localVarCount = 0;
+	new_tab->while_count = 0;
     new_tab->scope = scope;
     scope++;
 
@@ -1435,7 +1435,7 @@ void doCompExpr(OPERATOR op, TYPE left, TYPE right){
 	codeGen("\ticonst_1\n");
 	sprintf(code_buf,"L_%s_FALSE_%d:\n", label_name, cmp_label);
 	codeGen(code_buf);
-	
+
 	cmp_label++;
 }
 

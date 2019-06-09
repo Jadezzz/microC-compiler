@@ -41,6 +41,7 @@ struct SymTable {
     struct SymNode* first;
     int localVarCount;
     int scope;
+    int while_count;
 };
 
 #endif
