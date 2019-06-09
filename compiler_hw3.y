@@ -81,6 +81,8 @@ void doFuncCallArg(TYPE type);
 void doInvokeFunc(struct SymNode* node);
 
 void doAssign(OPERATOR op, struct SymNode* node, TYPE right);
+
+void doGlobalVarDecl(char* name, TYPE type, bool hasValue);
 %}
 
 /* Present nonterminal and token type */
@@ -149,68 +151,10 @@ global_constant
 
 global_var_decl
 	: type_spec ID ASGN global_constant SEMICOLON {
-		// TODO: NOT DONE 
-		// We can assume type will always be correct 
-		if(lookupSymbol($2, false) == NIL){
-			insertNode($2, VARIABLE_t, $1, false, false);
-			char c;
-			switch ($1){
-				case INTEGER_t:
-					c = 'I';
-					sprintf(code_buf, ".field public static %s %c = %d\n", $2, c, yylval.i_val);
-					codeGen(code_buf);
-					break;
-				case FLOAT_t:
-					c = 'F';
-					sprintf(code_buf, ".field public static %s %c = %f\n", $2, c, yylval.f_val);
-					codeGen(code_buf);
-					break;
-				
-				case BOOLEAN_t:
-					c = 'I';
-					sprintf(code_buf, ".field public static %s %c = %d\n", $2, c, yylval.i_val);
-					codeGen(code_buf);
-					break;
-				
-				default:
-					yyerror("Unsupported global type!");
-					break;
-			}
-		}
-		else{
-			yyerror("Redeclared Variable");
-		}
+		doGlobalVarDecl($2, $1, true);
 	}
 	| type_spec ID SEMICOLON {
-		if(lookupSymbol($2, false) == NIL){
-			insertNode($2, VARIABLE_t, $1, false, false);
-			char c;
-			switch ($1){
-				case INTEGER_t:
-					c = 'I';
-					sprintf(code_buf, ".field public static %s %c = %d\n", $2, c, 0);
-					codeGen(code_buf);
-					break;
-				case FLOAT_t:
-					c = 'F';
-					sprintf(code_buf, ".field public static %s %c = %f\n", $2, c, 0.0);
-					codeGen(code_buf);
-					break;
-				
-				case BOOLEAN_t:
-					c = 'I';
-					sprintf(code_buf, ".field public static %s %c = %d\n", $2, c, 0);
-					codeGen(code_buf);
-					break;
-				
-				default:
-					yyerror("Unsupported global type!");
-					break;
-			}
-		}
-		else{
-			yyerror("Redeclared Variable");
-		}
+		doGlobalVarDecl($2, $1, false);
 	}
 	;
 
@@ -1803,4 +1747,53 @@ void doAssign(OPERATOR op, struct SymNode* node, TYPE right){
 	}
 
 	return;
+}
+
+void doGlobalVarDecl(char* name, TYPE type, bool hasValue){
+	// We can assume type will always be correct 
+	if(lookupSymbol(name, false) == NIL){
+		insertNode(name, VARIABLE_t, type, false, false);
+		char c;
+		switch (type){
+			case INTEGER_t:
+				c = 'I';
+				if(hasValue){
+					sprintf(code_buf, ".field public static %s %c = %d\n", name, c, yylval.i_val);
+				}
+				else{
+					sprintf(code_buf, ".field public static %s %c = %d\n", name, c, 0);
+				}
+				codeGen(code_buf);
+				break;
+			case FLOAT_t:
+				c = 'F';
+				if(hasValue){
+					sprintf(code_buf, ".field public static %s %c = %f\n", name, c, yylval.f_val);
+				}
+				else{
+					sprintf(code_buf, ".field public static %s %c = %f\n", name, c, 0.0);
+				}
+				codeGen(code_buf);
+				break;
+			
+			case BOOLEAN_t:
+				c = 'I';
+				if(hasValue){
+					sprintf(code_buf, ".field public static %s %c = %d\n", name, c, yylval.i_val);					
+				}
+				else{
+					sprintf(code_buf, ".field public static %s %c = %d\n", name, c, 0);
+				}
+
+				codeGen(code_buf);
+				break;
+			
+			default:
+				yyerror("Unsupported global type!");
+				break;
+		}
+	}
+	else{
+		yyerror("Redeclared Variable");
+	}
 }
