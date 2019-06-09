@@ -25,6 +25,7 @@ void yyerror(char *s);
 TYPE func_ret = VOID_t;
 
 int label=0;
+int while_label=0;
 
 /* symbol table functions */
 int var_count = 0;
@@ -593,7 +594,23 @@ print_stmt
 	;
 
 while_stmt
-	: WHILE LB expression RB compound_stmt
+	: WHILE {
+		sprintf(code_buf, "L_WHILE_%d", while_label);
+		codeGen(code_buf);	
+		codeGen(":\n");
+	}
+	LB expression RB {
+		sprintf(code_buf, "\tifeq L_WHILE_EXIT_%d\n", while_label);
+		codeGen(code_buf);
+	}
+	compound_stmt{
+		sprintf(code_buf, "\tgoto L_WHILE_%d\n", while_label);
+		codeGen(code_buf);
+		sprintf(code_buf, "L_WHILE_EXIT_%d", while_label);
+		codeGen(code_buf);
+		codeGen(":\n");
+		while_label++;
+	}
 
 if_stmt
 	: IF LB expression RB compound_stmt else_if_stmt else_stmt

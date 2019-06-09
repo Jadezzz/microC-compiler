@@ -5,7 +5,12 @@ void lol(){
 
 void main(){
     int a = 10;
-    int b = a;
+    int b = 0;
+    while(a > b){
+        print(a);
+        a --;
+        b ++;
+    }
     print(b);
     return;
 }
