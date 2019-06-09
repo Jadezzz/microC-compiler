@@ -111,7 +111,7 @@ void doInvokeFunc(struct SymNode* node);
 /* Nonterminal with return */
 %type <type> type_spec constant expression or_expr and_expr
 %type <type> comparison_expr addition_expr multiplication_expr
-%type <type> parenthesis_clause func_invoke_stmt
+%type <type> parenthesis_clause func_invoke_stmt 
 %type <op> assign_op cmp_op add_op mul_op post_op 
 
 /* Yacc start nonterminal */
@@ -464,12 +464,28 @@ expression
 
 or_expr
 	: and_expr { $$=$1; }
-	| or_expr OR and_expr { $$=BOOLEAN_t; }
+	| or_expr OR and_expr { 
+		$$=BOOLEAN_t; 
+		if( $1 != BOOLEAN_t || $3 != BOOLEAN_t ){
+			yyerror("Cannot do OR with other type than bool");
+		}
+		else{
+			codeGen("\tior\n");
+		}
+	}
 	;
 
 and_expr
 	: comparison_expr { $$=$1; }
-	| and_expr AND comparison_expr { $$=BOOLEAN_t; }
+	| and_expr AND comparison_expr { 
+		$$=BOOLEAN_t; 
+		if( $1 != BOOLEAN_t || $3 != BOOLEAN_t ){
+			yyerror("Cannot do AND with other type than bool");
+		}
+		else{
+			codeGen("\tiand\n");
+		}
+	}
 	;
 
 comparison_expr
