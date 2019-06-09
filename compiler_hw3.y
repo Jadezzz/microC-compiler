@@ -79,6 +79,8 @@ void doCompExpr(OPERATOR op, TYPE left, TYPE right);
 
 void doFuncCallArg(TYPE type);
 void doInvokeFunc(struct SymNode* node);
+
+void doAssign(OPERATOR op, struct SymNode* node, TYPE right);
 %}
 
 /* Present nonterminal and token type */
@@ -167,6 +169,37 @@ global_var_decl
 				case BOOLEAN_t:
 					c = 'I';
 					sprintf(code_buf, ".field public static %s %c = %d\n", $2, c, yylval.i_val);
+					codeGen(code_buf);
+					break;
+				
+				default:
+					yyerror("Unsupported global type!");
+					break;
+			}
+		}
+		else{
+			yyerror("Redeclared Variable");
+		}
+	}
+	| type_spec ID SEMICOLON {
+		if(lookupSymbol($2, false) == NIL){
+			insertNode($2, VARIABLE_t, $1, false, false);
+			char c;
+			switch ($1){
+				case INTEGER_t:
+					c = 'I';
+					sprintf(code_buf, ".field public static %s %c = %d\n", $2, c, 0);
+					codeGen(code_buf);
+					break;
+				case FLOAT_t:
+					c = 'F';
+					sprintf(code_buf, ".field public static %s %c = %f\n", $2, c, 0.0);
+					codeGen(code_buf);
+					break;
+				
+				case BOOLEAN_t:
+					c = 'I';
+					sprintf(code_buf, ".field public static %s %c = %d\n", $2, c, 0);
 					codeGen(code_buf);
 					break;
 				
@@ -447,7 +480,13 @@ post_op
 	;
 
 assign_stmt
-	: ID assign_op expression SEMICOLON 
+	: ID assign_op expression SEMICOLON {
+		struct SymNode* node = lookupSymbol($1, true);
+		if(node == NIL){
+			yyerror("Undeclared Variable");
+		}
+		doAssign($2, node, $3);
+	}
 
 assign_op
 	: ASGN { $$=ASGN_t; }
@@ -1514,4 +1553,254 @@ void doInvokeFunc(struct SymNode* node){
 	// Generate Return Type
 	codeGen(type2Code(node->data_type));
 	codeGen("\n");
+}
+
+void doAssign(OPERATOR op, struct SymNode* node, TYPE right){
+	
+	TYPE left = node->data_type;
+	int index = node->index;
+	
+	switch(op){
+	case ASGN_t:
+		if(left == INTEGER_t && right == INTEGER_t){
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == INTEGER_t && right == FLOAT_t){
+			codeGen("\tf2i\n");
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == FLOAT_t && right == FLOAT_t){
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == FLOAT_t && right == INTEGER_t){
+			codeGen("\ti2f\n");
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == BOOLEAN_t && right == BOOLEAN_t){
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == STRING_t && right == STRING_t){
+			sprintf(code_buf, "\tastore %d\n", index);
+			codeGen(code_buf);
+		}
+		else{
+			yyerror("Wrong type at assign!");
+		}
+		break;
+		
+	case ADD_ASGN_t:
+		if(left == INTEGER_t && right == INTEGER_t){
+			sprintf(code_buf, "\tiload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tiadd\n");
+			
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == INTEGER_t && right == FLOAT_t){
+			codeGen("\tf2i\n");
+			sprintf(code_buf, "\tiload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tiadd\n");
+
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == FLOAT_t && right == FLOAT_t){
+			sprintf(code_buf, "\tfload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tfadd\n");
+
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == FLOAT_t && right == INTEGER_t){
+			codeGen("\ti2f\n");
+			sprintf(code_buf, "\tfload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tfadd\n");
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+		}else{
+			yyerror("Only INT and FLOAT can do add assign");
+		}
+		break;
+	
+	case SUB_ASGN_t:
+		if(left == INTEGER_t && right == INTEGER_t){
+			sprintf(code_buf, "\tiload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tswap\n");
+			codeGen("\tisub\n");
+			
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == INTEGER_t && right == FLOAT_t){
+			sprintf(code_buf, "\tiload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\ti2f\n");
+
+			codeGen("\tswap\n");
+			codeGen("\tfsub\n");
+
+			codeGen("\tf2i\n");
+
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == FLOAT_t && right == FLOAT_t){
+			sprintf(code_buf, "\tfload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tswap\n");
+			codeGen("\tfsub\n");
+
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == FLOAT_t && right == INTEGER_t){
+			codeGen("\ti2f\n");
+			sprintf(code_buf, "\tfload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tswap\n");
+			codeGen("\tfsub\n");
+
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+		}else{
+			yyerror("Only INT and FLOAT can do sub assign");
+		}
+
+		break;
+	
+	case DIV_ASGN_t:
+		if(left == INTEGER_t && right == INTEGER_t){
+			sprintf(code_buf, "\tiload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tswap\n");
+			codeGen("\tidiv\n");
+			
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == INTEGER_t && right == FLOAT_t){
+			sprintf(code_buf, "\tiload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\ti2f\n");
+
+			codeGen("\tswap\n");
+			codeGen("\tfdiv\n");
+
+			codeGen("\tf2i\n");
+
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == FLOAT_t && right == FLOAT_t){
+			sprintf(code_buf, "\tfload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tswap\n");
+			codeGen("\tfdiv\n");
+
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == FLOAT_t && right == INTEGER_t){
+			codeGen("\ti2f\n");
+			sprintf(code_buf, "\tfload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tswap\n");
+			codeGen("\tfdiv\n");
+
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+		}else{
+			yyerror("Only INT and FLOAT can do div assign");
+		}
+		break;
+
+	case MOD_ASGN_t:
+		if(left == INTEGER_t && right == INTEGER_t){
+			sprintf(code_buf, "\tiload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tswap\n");
+			codeGen("\tirem\n");
+			
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}else{
+			yyerror("Only INT can do mod assign");
+		}
+		break;
+
+	case MUL_ASGN_t:
+		if(left == INTEGER_t && right == INTEGER_t){
+			sprintf(code_buf, "\tiload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tswap\n");
+			codeGen("\timul\n");
+			
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == INTEGER_t && right == FLOAT_t){
+			sprintf(code_buf, "\tiload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\ti2f\n");
+
+			codeGen("\tswap\n");
+			codeGen("\tfmul\n");
+
+			codeGen("\tf2i\n");
+
+			sprintf(code_buf, "\tistore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == FLOAT_t && right == FLOAT_t){
+			sprintf(code_buf, "\tfload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tswap\n");
+			codeGen("\tfmul\n");
+
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+		}
+		else if(left == FLOAT_t && right == INTEGER_t){
+			codeGen("\ti2f\n");
+			sprintf(code_buf, "\tfload %d\n", index);
+			codeGen(code_buf);
+
+			codeGen("\tswap\n");
+			codeGen("\tfmul\n");
+
+			sprintf(code_buf, "\tfstore %d\n", index);
+			codeGen(code_buf);
+		}else{
+			yyerror("Only INT and FLOAT can do div assign");
+		}
+		break;
+	}
+
+	return;
 }

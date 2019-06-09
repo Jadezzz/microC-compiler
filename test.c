@@ -1,20 +1,12 @@
-int fibonacci(int n) {
-	if( n == 0 || n == 1) {
-		return n;
-	}
-	else {
-		return fibonacci(n-1) + fibonacci(n-2);
-	}
-
-	return 0;
-}
 void main(){
-    print("Fibonacci from 0 to 10");
-    int a = 0;
-    while(a < 11){
-        int c = fibonacci(a);
+    int a = 10;
+    int b = 10;
+
+    int c= 100;
+    while(a > 0){
+        c %= a;
         print(c);
-        a++;
+        a--; 
     }
     return;
 }
