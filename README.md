@@ -78,14 +78,14 @@ void main(){
 	iflt L_LT_TRUE_0      -------
 	iconst_0                    |
 	goto L_LT_FALSE_0        compare < 
-L_LT_TRUE_0:                  |
+L_LT_TRUE_0:                  	    |
 	iconst_1                    |
-L_LT_FALSE_0:           -------
+L_LT_FALSE_0:                 -------
 	ifeq L_THEN0_0_1                          --if(n<2)--
 	iload 0                                             |
 	ireturn                                             |
 	goto L_COND_EXIT_0_1                      -----------
-L_THEN0_0_1:                                ---else----
+L_THEN0_0_1:                                      ---else----
 	iload 0                                             |
 	ldc 1                                               |
 	isub                                               n-1
@@ -96,7 +96,7 @@ L_THEN0_0_1:                                ---else----
 	invokestatic compiler_hw3/fibonacci(I)I          fibonacci(n-2)
 	iadd                                                +
 	ireturn                                             |
-L_COND_EXIT_0_1:                            -----------
+L_COND_EXIT_0_1:                            	  -----------
 	ldc 0
 	ireturn
 .end method
