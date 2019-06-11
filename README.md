@@ -32,8 +32,6 @@ $ java -jar jasmin.jar compiler_hw3.j
 $ java compiler_hw3
 ```
 
-## STAR THIS REPO if it helps you :)
-
 ## Examples
 
 Fibonacci Sequence
@@ -140,3 +138,5 @@ L_WHILE_EXIT_0_1:
 	return
 .end method
 ```
+
+## STAR THIS REPO if it helps you :)
