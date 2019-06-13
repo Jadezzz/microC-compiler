@@ -56,7 +56,6 @@ void genPrint(TYPE type);
 void codeGen(char const *s);
 void genStore(struct SymNode* node);
 void genLoad(struct SymNode* node);
-void genLoadStatic(struct SymNode* node);
 void doPostfixExpr(OPERATOR op, struct SymNode* node);
 
 TYPE doMultExpr(OPERATOR op, TYPE left, TYPE right);
@@ -324,8 +323,8 @@ func_def
 		
 		codeGen("\n");
 
-		codeGen(".limit stack 51\n");
-		codeGen(".limit locals 51\n");		
+		codeGen(".limit stack 50\n");
+		codeGen(".limit locals 50\n");		
 
 
 		// Open a new table, insert params first
@@ -513,13 +512,7 @@ parenthesis_clause
 			yyerror("Undeclared variable");
 		}
 		$$=node->data_type; 
-		if(node->scope != 0){
-			genLoad(node);
-		}
-		else{
-			// Load from static
-			genLoadStatic(node);
-		}
+		genLoad(node);
 	}
 	| func_invoke_stmt { $$=$1;  }
 	| LB expression RB { $$=$2; }
@@ -567,12 +560,7 @@ print_stmt
 	: PRINT LB ID RB SEMICOLON { 	
 		struct SymNode* node = lookupSymbol($3, true);
 		if( node != NIL){
-			if(node->scope == 0){
-				genLoadStatic(node);
-			}
-			else{
-				genLoad(node);
-			}
+			genLoad(node);
 			genPrint(node->data_type);
 		}
 		else{
@@ -1121,25 +1109,51 @@ void codeGen(char const *s)
 
 void genStore(struct SymNode* node){
 	int index = node->index;
-	TYPE type = node->data_type;
-	switch (type){
+	TYPE data_type = node->data_type;
+	char* type = type2Code(data_type);
+	char* name = node->name;
+	bool isStatic = false;
+	if(node->scope == 0){
+		isStatic = true;
+	}
+	switch (data_type){
 		case INTEGER_t:
-			sprintf(code_buf, "\tistore %d\n", index);
+			if(isStatic){
+				sprintf(code_buf, "\tputstatic compiler_hw3/%s %s\n", name, type);
+			}
+			else{
+				sprintf(code_buf, "\tistore %d\n", index);
+			}
 			codeGen(code_buf);
 			break;
 
 		case FLOAT_t:
-			sprintf(code_buf, "\tfstore %d\n", index);
+			if(isStatic){
+				sprintf(code_buf, "\tputstatic compiler_hw3/%s %s\n", name, type);
+			}
+			else{
+				sprintf(code_buf, "\tfstore %d\n", index);
+			}
 			codeGen(code_buf);
 			break;
 
 		case STRING_t:
-			sprintf(code_buf, "\tastore %d\n", index);
+			if(isStatic){
+				sprintf(code_buf, "\tputstatic compiler_hw3/%s %s\n", name, type);
+			}
+			else{
+				sprintf(code_buf, "\tastore %d\n", index);
+			}
 			codeGen(code_buf);
 			break;
 
 		case BOOLEAN_t:
-			sprintf(code_buf, "\tistore %d\n", index);
+			if(isStatic){
+				sprintf(code_buf, "\tputstatic compiler_hw3/%s %s\n", name, type);
+			}
+			else{
+				sprintf(code_buf, "\tistore %d\n", index);
+			}
 			codeGen(code_buf);
 			break;
 		
@@ -1151,25 +1165,51 @@ void genStore(struct SymNode* node){
 
 void genLoad(struct SymNode* node){
 	int index = node->index;
-	TYPE type = node->data_type;
-	switch (type){
+	TYPE data_type = node->data_type;
+	char* type = type2Code(data_type);
+	char* name = node->name;
+	bool isStatic = false;
+	if(node->scope == 0){
+		isStatic = true;
+	}
+	switch (data_type){
 		case INTEGER_t:
-			sprintf(code_buf, "\tiload %d\n", index);
+			if(isStatic){
+				sprintf(code_buf, "\tgetstatic compiler_hw3/%s %s\n", name, type);
+			}
+			else{
+				sprintf(code_buf, "\tiload %d\n", index);
+			}
 			codeGen(code_buf);
 			break;
 
 		case FLOAT_t:
-			sprintf(code_buf, "\tfload %d\n", index);
+			if(isStatic){
+				sprintf(code_buf, "\tgetstatic compiler_hw3/%s %s\n", name, type);
+			}
+			else{
+				sprintf(code_buf, "\tfload %d\n", index);
+			}
 			codeGen(code_buf);
 			break;
 
 		case STRING_t:
-			sprintf(code_buf, "\taload %d\n", index);
+			if(isStatic){
+				sprintf(code_buf, "\tgetstatic compiler_hw3/%s %s\n", name, type);
+			}
+			else{
+				sprintf(code_buf, "\taload %d\n", index);
+			}
 			codeGen(code_buf);
 			break;
 
 		case BOOLEAN_t:
-			sprintf(code_buf, "\tiload %d\n", index);
+			if(isStatic){
+				sprintf(code_buf, "\tgetstatic compiler_hw3/%s %s\n", name, type);
+			}
+			else{
+				sprintf(code_buf, "\tiload %d\n", index);
+			}
 			codeGen(code_buf);
 			break;
 
@@ -1179,13 +1219,6 @@ void genLoad(struct SymNode* node){
 	}
 }
 
-void genLoadStatic(struct SymNode* node){
-	char* name = node->name;
-	char* type = type2Code(node->data_type);
-
-	sprintf(code_buf,"\tgetstatic compiler_hw3/%s %s\n", name, type);
-	codeGen(code_buf);
-}
 
 void doPostfixExpr(OPERATOR op, struct SymNode* node){
 	genLoad(node);
@@ -1248,11 +1281,11 @@ TYPE doMul(TYPE left, TYPE right){
 	}
 	else if(left == INTEGER_t && right == FLOAT_t){
 		// save to temp register
-		codeGen("\tfstore 50\n");
+		codeGen("\tswap\n");
 		// change type
 		codeGen("\ti2f\n");
 		// push back
-		codeGen("\tfload 50\n");
+		codeGen("\tswap\n");
 		codeGen("\tfmul\n");
 		return FLOAT_t;
 	}
@@ -1278,11 +1311,11 @@ TYPE doDiv(TYPE left, TYPE right){
 	}
 	else if(left == INTEGER_t && right == FLOAT_t){
 		// save to temp register
-		codeGen("\tfstore 50\n");
+		codeGen("\tswap\n");
 		// change type
 		codeGen("\ti2f\n");
 		// push back
-		codeGen("\tfload 50\n");
+		codeGen("\tswap\n");
 		codeGen("\tfdiv\n");
 		return FLOAT_t;
 	}
@@ -1330,11 +1363,11 @@ TYPE doAdd(TYPE left, TYPE right){
 	}
 	else if(left == INTEGER_t && right == FLOAT_t){
 		// save to temp register
-		codeGen("\tfstore 50\n");
+		codeGen("\tswap\n");
 		// change type
 		codeGen("\ti2f\n");
 		// push back
-		codeGen("\tfload 50\n");
+		codeGen("\tswap\n");
 		codeGen("\tfadd\n");
 		return FLOAT_t;
 	}
@@ -1359,11 +1392,11 @@ TYPE doSub(TYPE left, TYPE right){
 	}
 	else if(left == INTEGER_t && right == FLOAT_t){
 		// save to temp register
-		codeGen("\tfstore 50\n");
+		codeGen("\tswap\n");
 		// change type
 		codeGen("\ti2f\n");
 		// push back
-		codeGen("\tfload 50\n");
+		codeGen("\tswap\n");
 		codeGen("\tfsub\n");
 		return FLOAT_t;
 	}
@@ -1388,19 +1421,19 @@ void doCompExpr(OPERATOR op, TYPE left, TYPE right){
 		// change right to float
 		codeGen("\ti2f\n");
 		// save right to register
-		codeGen("\tfstore 50\n");
+		codeGen("\tswap\n");
 		// change left to float
 		codeGen("\ti2f\n");
 		// pushback right
-		codeGen("\tfload 50\n");
+		codeGen("\tswap\n");
 	}
 	else if(left == INTEGER_t && right == FLOAT_t){
 		// save right to register
-		codeGen("\tfstore 50\n");
+		codeGen("\tswap\n");
 		// change left to float
 		codeGen("\ti2f\n");
 		// pushback right
-		codeGen("\tfload 50\n");
+		codeGen("\tswap\n");
 	}
 	else if(left == FLOAT_t && right == FLOAT_t){
 		// no need to cast
@@ -1498,35 +1531,28 @@ void doInvokeFunc(struct SymNode* node){
 void doAssign(OPERATOR op, struct SymNode* node, TYPE right){
 	
 	TYPE left = node->data_type;
-	int index = node->index;
-	
+
 	switch(op){
 	case ASGN_t:
 		if(left == INTEGER_t && right == INTEGER_t){
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
+			genStore(node);
 		}
 		else if(left == INTEGER_t && right == FLOAT_t){
 			codeGen("\tf2i\n");
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
+			genStore(node);
 		}
 		else if(left == FLOAT_t && right == FLOAT_t){
-			sprintf(code_buf, "\tfstore %d\n", index);
-			codeGen(code_buf);
+			genStore(node);
 		}
 		else if(left == FLOAT_t && right == INTEGER_t){
 			codeGen("\ti2f\n");
-			sprintf(code_buf, "\tfstore %d\n", index);
-			codeGen(code_buf);
+			genStore(node);
 		}
 		else if(left == BOOLEAN_t && right == BOOLEAN_t){
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
+			genStore(node);
 		}
 		else if(left == STRING_t && right == STRING_t){
-			sprintf(code_buf, "\tastore %d\n", index);
-			codeGen(code_buf);
+			genStore(node);
 		}
 		else{
 			yyerror("Wrong type at assign!");
@@ -1534,211 +1560,38 @@ void doAssign(OPERATOR op, struct SymNode* node, TYPE right){
 		break;
 		
 	case ADD_ASGN_t:
-		if(left == INTEGER_t && right == INTEGER_t){
-			sprintf(code_buf, "\tiload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tiadd\n");
-			
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == INTEGER_t && right == FLOAT_t){
-			codeGen("\tf2i\n");
-			sprintf(code_buf, "\tiload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tiadd\n");
-
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == FLOAT_t && right == FLOAT_t){
-			sprintf(code_buf, "\tfload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tfadd\n");
-
-			sprintf(code_buf, "\tfstore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == FLOAT_t && right == INTEGER_t){
-			codeGen("\ti2f\n");
-			sprintf(code_buf, "\tfload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tfadd\n");
-			sprintf(code_buf, "\tfstore %d\n", index);
-			codeGen(code_buf);
-		}else{
-			yyerror("Only INT and FLOAT can do add assign");
-		}
+		genLoad(node);
+		codeGen("\tswap\n");
+		doAdd(left, right);
+		genStore(node);
 		break;
 	
 	case SUB_ASGN_t:
-		if(left == INTEGER_t && right == INTEGER_t){
-			sprintf(code_buf, "\tiload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tswap\n");
-			codeGen("\tisub\n");
-			
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == INTEGER_t && right == FLOAT_t){
-			sprintf(code_buf, "\tiload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\ti2f\n");
-
-			codeGen("\tswap\n");
-			codeGen("\tfsub\n");
-
-			codeGen("\tf2i\n");
-
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == FLOAT_t && right == FLOAT_t){
-			sprintf(code_buf, "\tfload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tswap\n");
-			codeGen("\tfsub\n");
-
-			sprintf(code_buf, "\tfstore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == FLOAT_t && right == INTEGER_t){
-			codeGen("\ti2f\n");
-			sprintf(code_buf, "\tfload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tswap\n");
-			codeGen("\tfsub\n");
-
-			sprintf(code_buf, "\tfstore %d\n", index);
-			codeGen(code_buf);
-		}else{
-			yyerror("Only INT and FLOAT can do sub assign");
-		}
-
+		genLoad(node);
+		codeGen("\tswap\n");
+		doSub(left, right);
+		genStore(node);
 		break;
 	
 	case DIV_ASGN_t:
-		if(left == INTEGER_t && right == INTEGER_t){
-			sprintf(code_buf, "\tiload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tswap\n");
-			codeGen("\tidiv\n");
-			
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == INTEGER_t && right == FLOAT_t){
-			sprintf(code_buf, "\tiload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\ti2f\n");
-
-			codeGen("\tswap\n");
-			codeGen("\tfdiv\n");
-
-			codeGen("\tf2i\n");
-
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == FLOAT_t && right == FLOAT_t){
-			sprintf(code_buf, "\tfload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tswap\n");
-			codeGen("\tfdiv\n");
-
-			sprintf(code_buf, "\tfstore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == FLOAT_t && right == INTEGER_t){
-			codeGen("\ti2f\n");
-			sprintf(code_buf, "\tfload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tswap\n");
-			codeGen("\tfdiv\n");
-
-			sprintf(code_buf, "\tfstore %d\n", index);
-			codeGen(code_buf);
-		}else{
-			yyerror("Only INT and FLOAT can do div assign");
-		}
+		genLoad(node);
+		codeGen("\tswap\n");
+		doDiv(left, right);
+		genStore(node);
 		break;
 
 	case MOD_ASGN_t:
-		if(left == INTEGER_t && right == INTEGER_t){
-			sprintf(code_buf, "\tiload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tswap\n");
-			codeGen("\tirem\n");
-			
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
-		}else{
-			yyerror("Only INT can do mod assign");
-		}
+		genLoad(node);
+		codeGen("\tswap\n");
+		doMod(left, right);
+		genStore(node);
 		break;
 
 	case MUL_ASGN_t:
-		if(left == INTEGER_t && right == INTEGER_t){
-			sprintf(code_buf, "\tiload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tswap\n");
-			codeGen("\timul\n");
-			
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == INTEGER_t && right == FLOAT_t){
-			sprintf(code_buf, "\tiload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\ti2f\n");
-
-			codeGen("\tswap\n");
-			codeGen("\tfmul\n");
-
-			codeGen("\tf2i\n");
-
-			sprintf(code_buf, "\tistore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == FLOAT_t && right == FLOAT_t){
-			sprintf(code_buf, "\tfload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tswap\n");
-			codeGen("\tfmul\n");
-
-			sprintf(code_buf, "\tfstore %d\n", index);
-			codeGen(code_buf);
-		}
-		else if(left == FLOAT_t && right == INTEGER_t){
-			codeGen("\ti2f\n");
-			sprintf(code_buf, "\tfload %d\n", index);
-			codeGen(code_buf);
-
-			codeGen("\tswap\n");
-			codeGen("\tfmul\n");
-
-			sprintf(code_buf, "\tfstore %d\n", index);
-			codeGen(code_buf);
-		}else{
-			yyerror("Only INT and FLOAT can do div assign");
-		}
+		genLoad(node);
+		codeGen("\tswap\n");
+		doMul(left, right);
+		genStore(node);
 		break;
 	}
 
