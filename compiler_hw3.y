@@ -75,6 +75,8 @@ void doInvokeFunc(struct SymNode* node);
 void doAssign(OPERATOR op, struct SymNode* node, TYPE right);
 
 void doGlobalVarDecl(char* name, TYPE type, bool hasValue);
+
+bool lastConstZero = false;
 %}
 
 /* Present nonterminal and token type */
@@ -513,8 +515,9 @@ parenthesis_clause
 		}
 		$$=node->data_type; 
 		genLoad(node);
+		lastConstZero = false;
 	}
-	| func_invoke_stmt { $$=$1;  }
+	| func_invoke_stmt { $$=$1; }
 	| LB expression RB { $$=$2; }
 	;
 
@@ -523,11 +526,25 @@ constant
 		$$=INTEGER_t; 
 		sprintf(code_buf, "\tldc %d\n", yylval.i_val); 
 		codeGen(code_buf);
+
+		if(yylval.i_val == 0){
+			lastConstZero = true;
+		}
+		else{
+			lastConstZero = false;
+		}
 	}
 	| F_CONST { 
 		$$=FLOAT_t; 
 		sprintf(code_buf, "\tldc %f\n", yylval.f_val); 
 		codeGen(code_buf);
+
+		if(yylval.f_val == 0){
+			lastConstZero = true;
+		}
+		else{
+			lastConstZero = false;
+		}
 	}
 	| SUB I_CONST { 
 		$$=INTEGER_t; 
@@ -1305,6 +1322,9 @@ TYPE doMul(TYPE left, TYPE right){
 }
 
 TYPE doDiv(TYPE left, TYPE right){
+	if(lastConstZero){
+		yyerror("Divide by zero");
+	}
 	if(left == INTEGER_t && right == INTEGER_t){
 		codeGen("\tidiv\n");
 		return INTEGER_t;
