@@ -1610,17 +1610,22 @@ void doGlobalVarDecl(char* name, TYPE type, bool hasValue){
 					sprintf(code_buf, ".field public static %s %c = %d\n", name, c, yylval.i_val);
 				}
 				else{
-					sprintf(code_buf, ".field public static %s %c = %d\n", name, c, 0);
+					sprintf(code_buf, ".field public static %s %c\n", name, c);
 				}
 				codeGen(code_buf);
 				break;
 			case FLOAT_t:
 				c = 'F';
 				if(hasValue){
-					sprintf(code_buf, ".field public static %s %c = %f\n", name, c, yylval.f_val);
+					if(yylval.f_val == 0){
+						sprintf(code_buf, ".field public static %s %c\n", name, c);
+					}
+					else{
+						sprintf(code_buf, ".field public static %s %c = %f\n", name, c, yylval.f_val);	
+					}
 				}
 				else{
-					sprintf(code_buf, ".field public static %s %c = %f\n", name, c, 0.0);
+					sprintf(code_buf, ".field public static %s %c\n", name, c);
 				}
 				codeGen(code_buf);
 				break;
@@ -1631,7 +1636,7 @@ void doGlobalVarDecl(char* name, TYPE type, bool hasValue){
 					sprintf(code_buf, ".field public static %s %c = %d\n", name, c, yylval.i_val);					
 				}
 				else{
-					sprintf(code_buf, ".field public static %s %c = %d\n", name, c, 0);
+					sprintf(code_buf, ".field public static %s %c\n", name, c);
 				}
 
 				codeGen(code_buf);
