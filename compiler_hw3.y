@@ -517,7 +517,7 @@ parenthesis_clause
 		genLoad(node);
 		lastConstZero = false;
 	}
-	| func_invoke_stmt { $$=$1; }
+	| func_invoke_stmt { lastConstZero = false; $$=$1; }
 	| LB expression RB { $$=$2; }
 	;
 
