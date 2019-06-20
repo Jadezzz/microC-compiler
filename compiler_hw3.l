@@ -102,6 +102,7 @@ id			{letter}+({letter}|{digit})*
 <STRING_STATE>\"		{ CONCAT 
                           BEGIN INITIAL;
                           yylval.lexeme = strdup(string_buf);
+                          memset(string_buf, '\0', BUF_SIZE);
                           return(STRING_CONST); }
 <STRING_STATE>[^"]*		{ CONCAT 
                           strncat(string_buf, yytext, BUF_SIZE - strlen(string_buf) - 1);

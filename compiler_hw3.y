@@ -139,6 +139,7 @@ global_constant
 	| SUB F_CONST { yylval.f_val *= -1; }
 	| TRUE 
 	| FALSE 
+	| STRING_CONST
 	;
 
 global_var_decl
@@ -1224,7 +1225,7 @@ void genLoad(struct SymNode* node){
 
 		case STRING_t:
 			if(isStatic){
-				sprintf(code_buf, "\tgetstatic compiler_hw3/%s %s\n", name, type);
+				sprintf(code_buf, "\tgetstatic compiler_hw3/%s Ljava/lang/String;\n", name);
 			}
 			else{
 				sprintf(code_buf, "\taload %d\n", index);
@@ -1535,8 +1536,12 @@ void doFuncCallArg(TYPE type){
 		if (type == INTEGER_t && temp_param->type == FLOAT_t){
 			codeGen("\ti2f\n");
 		}
+		else if (type == FLOAT_t && temp_param->type == INTEGER_t){
+			codeGen("\tf2i\n");
+		}
 		else {
 			yyerror("Function formal parameter type is not the same");
+			temp_param = NIL;
 		}
 	}
 	temp_param = temp_param -> next;
@@ -1675,6 +1680,16 @@ void doGlobalVarDecl(char* name, TYPE type, bool hasValue){
 				codeGen(code_buf);
 				break;
 			
+			case STRING_t:
+				if(hasValue){
+					sprintf(code_buf, ".field public static %s Ljava/lang/String; = \"%s\"\n", name, yylval.lexeme);
+				}
+				else{
+					sprintf(code_buf, ".field public static %s Ljava/lang/String; = \"\"\n", name);
+				}
+				codeGen(code_buf);
+				break;
+				
 			default:
 				yyerror("Unsupported global type!");
 				break;
