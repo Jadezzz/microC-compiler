@@ -211,7 +211,7 @@ var_decl
 				// No need to cast bool->bool
 			}
 			else {
-				yyerror("Type mismatch error!");
+				// yyerror("Type mismatch error!");
 			}
 			genStore(node);
 		}
@@ -369,7 +369,7 @@ param
 	;
 
 function_compound_stmt
-	: LCB content_list  RCB { removeTable(true); codeGen(".end method\n"); }
+	: LCB content_list  RCB { removeTable(true); codeGen(".end method\n"); func_ret=VOID_t;}
 	;
 
 compound_stmt
@@ -406,7 +406,10 @@ postfix_expr
 		if(node == NIL){
 			yyerror("Undeclared variable");
 		}
-		doPostfixExpr($2, node); 
+		else{
+			doPostfixExpr($2, node); 
+		}
+		
 	}
 	;
 
@@ -421,7 +424,10 @@ assign_stmt
 		if(node == NIL){
 			yyerror("Undeclared Variable");
 		}
-		doAssign($2, node, $3);
+		else{
+			doAssign($2, node, $3);
+		}
+		
 	}
 
 assign_op
@@ -512,10 +518,14 @@ parenthesis_clause
 		struct SymNode* node = lookupSymbol($1, true);
 		if(node == NIL){
 			yyerror("Undeclared variable");
+			$$ = VOID_t;
 		}
-		$$=node->data_type; 
-		genLoad(node);
+		else{
+			$$=node->data_type; 
+			genLoad(node);
+		}
 		lastConstZero = false;
+		
 	}
 	| func_invoke_stmt { lastConstZero = false; $$=$1; }
 	| LB expression RB { $$=$2; }
@@ -662,16 +672,6 @@ return_stmt
 			// No need to cast int->int
 			codeGen("\tireturn\n");
 		}
-		else if(func_ret == INTEGER_t && $2 == FLOAT_t){
-			// Cast stack to int float->int
-			codeGen("\tf2i\n");
-			codeGen("\tireturn\n");
-		}
-		else if(func_ret == FLOAT_t && $2 == INTEGER_t){
-			// Cast to float int->float
-			codeGen("\ti2f\n");
-			codeGen("\tfreturn\n");
-		}
 		else if(func_ret == FLOAT_t && $2 == FLOAT_t){
 			// No need to cast float->float
 			codeGen("\tfreturn\n");
@@ -681,7 +681,7 @@ return_stmt
 			codeGen("\tireturn\n");
 		}
 		else {
-			//yyerror("Return Type mismatch error");
+			yyerror("Return Type mismatch error");
 		}
 	
 	}
@@ -705,13 +705,25 @@ func_invoke_stmt
 
 arg_list
 	: arg_list COMMA expression{
-		doFuncCallArg($3);
-		if(temp_param != NIL){
-			yyerror("Function formal parameter is not the same");
+		if(temp_param == NIL){
+			yyerror("Function formal parameter number is not the same");
 		}
+		else{
+			doFuncCallArg($3);
+			if(temp_param != NIL){
+				yyerror("Function formal parameter is not the same");
+			}
+		}
+		
 	}
 	| expression {
-		doFuncCallArg($1);
+		if(temp_param == NIL){
+			yyerror("Function formal parameter number is not the same");
+		}
+		else{
+			doFuncCallArg($1);
+		}
+		
 	}
 	;
 
@@ -1360,7 +1372,7 @@ TYPE doMod(TYPE left, TYPE right){
 		return INTEGER_t;
 	}
 	else{
-		yyerror("Only int can do mod");
+		yyerror("Mod with float!");
 	}
 }
 
@@ -1518,12 +1530,13 @@ void doCompExpr(OPERATOR op, TYPE left, TYPE right){
 }
 
 void doFuncCallArg(TYPE type){
+	
 	if(type != temp_param->type){
 		if (type == INTEGER_t && temp_param->type == FLOAT_t){
 			codeGen("\ti2f\n");
 		}
 		else {
-			yyerror("Function formal parameter is not the same");
+			yyerror("Function formal parameter type is not the same");
 		}
 	}
 	temp_param = temp_param -> next;
