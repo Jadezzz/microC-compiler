@@ -692,6 +692,7 @@ func_invoke_stmt
 		struct SymNode* node = lookupSymbol($1, true);
 		if(node == NIL || node->scope != 0 || node->entry_type != FUNCTION_t){
 			yyerror("Undeclared function");
+			temp_param = NIL;
 		}
 		else{
 			temp_attribute = node->attribute;
@@ -699,8 +700,14 @@ func_invoke_stmt
 		}
 	} LB args RB {
 		struct SymNode* node = lookupSymbol($1, true);
-		doInvokeFunc(node);
-		$$=node->data_type;
+		if(node != NIL){
+			doInvokeFunc(node);
+			$$=node->data_type;
+		}
+		else{
+			$$ = VOID_t;
+		}
+		
 		temp_attribute = NIL;
 	}
 
@@ -731,7 +738,11 @@ arg_list
 args
 	: arg_list
 	| {
-		if(temp_attribute->paramNum != 0){
+		if(temp_attribute == NIL){
+			yyerror("Undeclared function");
+		}
+
+		else if(temp_attribute->paramNum != 0){
 			yyerror("Function formal parameter is not the same");
 		}
 	}
@@ -1265,7 +1276,7 @@ void doPostfixExpr(OPERATOR op, struct SymNode* node){
 			genStore(node);
 		}
 		else{
-			yyerror("Only int and float can do post expression");
+			//yyerror("Only int and float can do post expression");
 		}
 		break;
 		
@@ -1281,7 +1292,7 @@ void doPostfixExpr(OPERATOR op, struct SymNode* node){
 			genStore(node);
 		}
 		else{
-			yyerror("Only int and float can do post expression");
+			//yyerror("Only int and float can do post expression");
 		}
 		break;
 	}
@@ -1330,7 +1341,7 @@ TYPE doMul(TYPE left, TYPE right){
 		return FLOAT_t;
 	}
 	else{
-		yyerror("Only int and float can do multiplication");
+		//yyerror("Only int and float can do multiplication");
 	}
 }
 
@@ -1363,7 +1374,7 @@ TYPE doDiv(TYPE left, TYPE right){
 		return FLOAT_t;
 	}
 	else{
-		yyerror("Only int and float can do division");
+		//yyerror("Only int and float can do division");
 	}
 }
 
@@ -1415,7 +1426,7 @@ TYPE doAdd(TYPE left, TYPE right){
 		return FLOAT_t;
 	}
 	else{
-		yyerror("Only int and float can do addition");
+		//yyerror("Only int and float can do addition");
 	}
 }
 TYPE doSub(TYPE left, TYPE right){
@@ -1444,7 +1455,7 @@ TYPE doSub(TYPE left, TYPE right){
 		return FLOAT_t;
 	}
 	else{
-		yyerror("Only int and float can do subtraction");
+		//yyerror("Only int and float can do subtraction");
 	}
 }
 
