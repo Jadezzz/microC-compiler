@@ -834,12 +834,12 @@ void dumpTable(void){
             printf("\n%-10s%-10s%-12s%-10s%-10s%-10s\n\n",
 		           "Index", "Name", "Kind", "Type", "Scope", "Attribute");
         }
-
+		int seq = 0;
         struct SymNode* ptr = DUMP->first;
         struct SymNode* del_ptr = NIL;
         while(ptr != NIL){
             if(display_flag){
-                printf("%-10d", ptr->index);
+                printf("%-10d", seq++);
                 printf("%-10s", ptr->name);
                 printf("%-12s", type2String(ptr->entry_type));
                 printf("%-10s", type2String(ptr->data_type));
