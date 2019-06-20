@@ -183,7 +183,7 @@ var_decl
 			} 
 		}
 		else{
-			yyerror("Redeclared Symbol!");
+			yyerror("Redeclared variable!");
 		}
 	}
 	| type_spec ID ASGN expression SEMICOLON {
@@ -216,7 +216,7 @@ var_decl
 			genStore(node);
 		}
 		else{
-			yyerror("Redeclared Variable");
+			yyerror("Redeclared variable");
 		}
 	}
 	;
@@ -247,7 +247,7 @@ func_decl
 		}
 		else if(node != NIL && node->entry_type == FUNCTION_t){
 			if(node->isFuncDefine == false){
-				yyerror("Redeclared Function");
+				yyerror("Redeclared function");
 			}
 			if($1 != node->data_type){
 				yyerror("Function return type is not the same");
@@ -422,7 +422,7 @@ assign_stmt
 	: ID assign_op expression SEMICOLON {
 		struct SymNode* node = lookupSymbol($1, true);
 		if(node == NIL){
-			yyerror("Undeclared Variable");
+			yyerror("Undeclared variable");
 		}
 		else{
 			doAssign($2, node, $3);
@@ -591,7 +591,7 @@ print_stmt
 			genPrint(node->data_type);
 		}
 		else{
-			yyerror("Undefined Variable in print()!");
+			yyerror("Undeclared variable");
 		}
 	}
     | PRINT LB constant RB SEMICOLON { genPrint($3); }
@@ -690,7 +690,7 @@ func_invoke_stmt
 	: ID {
 		struct SymNode* node = lookupSymbol($1, true);
 		if(node == NIL || node->scope != 0 || node->entry_type != FUNCTION_t){
-			yyerror("Undeclared Function");
+			yyerror("Undeclared function");
 		}
 		else{
 			temp_attribute = node->attribute;
@@ -1681,6 +1681,6 @@ void doGlobalVarDecl(char* name, TYPE type, bool hasValue){
 		}
 	}
 	else{
-		yyerror("Redeclared Variable");
+		yyerror("Redeclared variable");
 	}
 }
