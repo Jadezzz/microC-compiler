@@ -2,8 +2,6 @@
 
 A simple compiler that can compile micro-C (a subset of C) to JVM instructions.
 
-## Note: This project is under construction!
-
 ### Compile it
 
 ```bash
